@@ -88,6 +88,34 @@ pytest
 - BLE의 x100 정수는 앱에서 풀어 실수(℃, %)로 보냅니다.
 - `measured_at`은 Unix 초. 최신값 응답의 `age_minutes`로 "n분 전 측정"을 표시합니다.
 - 앱이 재전송해도 안전하도록 같은 `(sensor_id, seq)`는 중복으로 처리합니다.
+- 범위를 벗어난 값(온도 -40~85, 습도 0~100, 센서ID 0~255)은 422로 거절합니다.
+
+### 장소 응답의 환경값 (`/api/spots`, `/api/spots/{id}`, `/api/courses`)
+
+```json
+{
+  "latest_reading": {
+    "sensor_id": 1, "seq": 100, "measured_at": 1731000000,
+    "temperature": 23.5, "humidity": 48.2,
+    "age_minutes": 3, "is_stale": false, "is_suspect": false
+  },
+  "recent_average": { "temperature": 23.1, "humidity": 48.9, "count": 6, "window_minutes": 30 }
+}
+```
+
+- `is_stale`: 측정 후 `STALE_MINUTES`(기본 30분) 이상 지났으면 `true`. 센서 전원이 꺼진 경우에 "오래된 값"으로 표시하는 용도입니다.
+- `is_suspect`: 같은 센서의 최근 `FIXED_VALUE_RUN`(기본 5)개 측정값의 온도와 습도가 모두 같으면 `true`. 센서가 멈춘 것으로 의심하는 표시이고, **값은 버리지 않고 그대로 저장**합니다. 이때 `recent_average`는 `null`입니다.
+- `recent_average`: 최근 `AVG_WINDOW_MINUTES`(기본 30분) 안의 측정값 평균. 측정값이 없으면 `null`입니다.
+- `latest_reading`, `recent_average`는 연결된 센서가 없거나 측정값이 없으면 `null`입니다.
+
+### 설정 (환경변수)
+
+| 이름 | 기본값 | 설명 |
+| --- | --- | --- |
+| `DATABASE_URL` | `sqlite:///./campus_tour.db` | DB 주소 |
+| `STALE_MINUTES` | 30 | 오래된 값으로 보는 기준(분) |
+| `FIXED_VALUE_RUN` | 5 | 고정값으로 의심하는 연속 개수 (최소 2) |
+| `AVG_WINDOW_MINUTES` | 30 | 최근 평균의 시간 범위(분) |
 
 ## 일정
 
