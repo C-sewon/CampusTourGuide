@@ -32,6 +32,15 @@ def test_fixed_run_only_looks_at_newest():
     assert processing.is_fixed_run([r()] * 5 + [r(temp=30.0)], 5)
 
 
+def test_sensor_status_priority():
+    assert processing.sensor_status(False, False, False) == "no_data"
+    assert processing.sensor_status(True, False, False) == "ok"
+    assert processing.sensor_status(True, False, True) == "suspect"
+    assert processing.sensor_status(True, True, False) == "stale"
+    # 오래된 데이터가 고정값이기도 하면 stale 을 우선한다
+    assert processing.sensor_status(True, True, True) == "stale"
+
+
 def test_average():
     assert processing.average([]) is None
     assert processing.average([r(20, 40), r(25, 60)]) == (22.5, 50.0, 2)
