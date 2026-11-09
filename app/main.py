@@ -2,7 +2,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Response
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -35,6 +35,37 @@ def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingO
     )
 
 
+def _is_fixed(db: Session, newest: models.Reading) -> bool:
+    """최신 측정값과 온도, 습도가 같은 값이 이어진 구간이 충분히 길면 True.
+
+    같은 값이 시작된 시점은 '마지막으로 다른 값이 측정된 시각' 이후로 본다.
+    """
+    R = models.Reading
+    last_different = db.scalar(
+        select(func.max(R.measured_at)).where(
+            R.sensor_id == newest.sensor_id,
+            R.measured_at <= newest.measured_at,
+            or_(R.temperature != newest.temperature, R.humidity != newest.humidity),
+        )
+    )
+    in_run = [
+        R.sensor_id == newest.sensor_id,
+        R.measured_at <= newest.measured_at,
+        R.temperature == newest.temperature,
+        R.humidity == newest.humidity,
+    ]
+    if last_different is not None:
+        in_run.append(R.measured_at > last_different)
+
+    count, first = db.execute(select(func.count(), func.min(R.measured_at)).where(*in_run)).one()
+    return processing.is_fixed_run(
+        count,
+        newest.measured_at - first,
+        config.FIXED_VALUE_MIN_COUNT,
+        config.FIXED_VALUE_MINUTES,
+    )
+
+
 def _sensor_environment(
     db: Session, sensor_id: int | None
 ) -> tuple[schemas.ReadingOut | None, schemas.AverageOut | None]:
@@ -43,17 +74,17 @@ def _sensor_environment(
         return None, None
 
     now = int(time.time())
-    newest_first = db.scalars(
+    newest = db.scalars(
         select(models.Reading)
         .where(models.Reading.sensor_id == sensor_id)
         .order_by(models.Reading.measured_at.desc(), models.Reading.seq.desc())
-        .limit(config.FIXED_VALUE_RUN)
-    ).all()
-    if not newest_first:
+        .limit(1)
+    ).first()
+    if newest is None:
         return None, None
 
-    suspect = processing.is_fixed_run(newest_first, config.FIXED_VALUE_RUN)
-    latest = _reading_out(newest_first[0], now, suspect)
+    suspect = _is_fixed(db, newest)
+    latest = _reading_out(newest, now, suspect)
     if suspect:  # 멈춘 센서 값으로는 평균을 내지 않는다
         return latest, None
 

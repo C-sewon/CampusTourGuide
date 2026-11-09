@@ -72,7 +72,8 @@ def test_stale_flag_follows_threshold(client, monkeypatch):
     assert client.get("/api/spots/1").json()["latest_reading"]["is_stale"] is True
 
 
-def test_fixed_value_sensor_is_flagged_and_not_averaged(client):
+def test_fixed_value_sensor_is_flagged_and_not_averaged(client, monkeypatch):
+    monkeypatch.setattr(config, "FIXED_VALUE_MINUTES", 0)  # 시간 조건 없이 개수만 본다
     now = int(time.time())
     for i in range(5):  # 같은 값이 5번 연속
         r = client.post(
@@ -89,6 +90,43 @@ def test_fixed_value_sensor_is_flagged_and_not_averaged(client):
 
     # 다른 센서는 영향 없음
     assert client.get("/api/spots/1").json()["latest_reading"]["is_suspect"] is False
+
+
+def test_short_fixed_run_is_not_flagged_by_default(client):
+    # 1초 간격 센서는 몇 초 동안 같은 값이 나올 수 있다. 기본 설정(10분)에서는 의심하지 않는다
+    now = int(time.time())
+    for i in range(8):
+        client.post(
+            "/api/readings",
+            json=reading(sensor_id=2, seq=520 + i, measured_at=now - 20 + i, temperature=18.0, humidity=40.0),
+        )
+    assert client.get("/api/spots/2").json()["latest_reading"]["is_suspect"] is False
+
+
+def test_long_fixed_run_is_flagged(client):
+    # 센서 99는 시드 측정값이 없다. 같은 값이 약 11분(650초) 동안 6번 이어짐
+    now = int(time.time())
+    for i in range(6):
+        client.post(
+            "/api/readings",
+            json=reading(sensor_id=99, seq=900 + i, measured_at=now - 720 + 130 * i, temperature=18.0, humidity=40.0),
+        )
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[99]["latest_reading"]["is_suspect"] is True
+    assert by_id[99]["status"] == "suspect"
+
+
+def test_fixed_run_restarts_after_a_different_value(client):
+    # 오래 같은 값이었어도 최신 값이 달라졌으면 의심하지 않는다 (센서가 다시 움직임)
+    now = int(time.time())
+    for i in range(6):
+        client.post(
+            "/api/readings",
+            json=reading(sensor_id=99, seq=950 + i, measured_at=now - 1500 + 130 * i, temperature=18.0, humidity=40.0),
+        )
+    client.post("/api/readings", json=reading(sensor_id=99, seq=960, measured_at=now - 30, temperature=18.2, humidity=40.0))
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[99]["latest_reading"]["is_suspect"] is False
 
 
 def test_varying_values_are_not_flagged(client):
@@ -123,6 +161,7 @@ def test_sensor_status_lists_all_seeded_sensors(client):
 
 
 def test_sensor_status_reflects_stale_and_suspect(client, monkeypatch):
+    monkeypatch.setattr(config, "FIXED_VALUE_MINUTES", 0)
     now = int(time.time())
     for i in range(5):
         client.post(

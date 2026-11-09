@@ -18,18 +18,20 @@ def test_is_stale_boundary():
 
 
 def test_fixed_run_needs_enough_samples():
-    assert not processing.is_fixed_run([r()] * 4, 5)
-    assert processing.is_fixed_run([r()] * 5, 5)
+    # 10분 이상 이어져도 측정값이 너무 적으면 폰이 가끔 올린 값일 수 있어 의심하지 않는다
+    assert not processing.is_fixed_run(count=4, span_seconds=3600, min_count=5, min_minutes=10)
+    assert processing.is_fixed_run(count=5, span_seconds=3600, min_count=5, min_minutes=10)
 
 
-def test_fixed_run_broken_by_any_change():
-    assert not processing.is_fixed_run([r(), r(), r(temp=20.1), r(), r()], 5)
-    assert not processing.is_fixed_run([r(), r(), r(hum=50.1), r(), r()], 5)
+def test_fixed_run_needs_enough_time():
+    # 1초 간격 센서는 몇 초 동안 같은 값이 나올 수 있다 (실제 센서 출력에서 확인됨)
+    assert not processing.is_fixed_run(count=50, span_seconds=49, min_count=5, min_minutes=10)
+    assert not processing.is_fixed_run(count=50, span_seconds=599, min_count=5, min_minutes=10)
+    assert processing.is_fixed_run(count=50, span_seconds=600, min_count=5, min_minutes=10)
 
 
-def test_fixed_run_only_looks_at_newest():
-    # 앞(최신) 5개만 본다. 더 오래된 값이 달라도 상관없음
-    assert processing.is_fixed_run([r()] * 5 + [r(temp=30.0)], 5)
+def test_fixed_run_with_zero_minutes_uses_count_only():
+    assert processing.is_fixed_run(count=5, span_seconds=0, min_count=5, min_minutes=0)
 
 
 def test_sensor_status_priority():

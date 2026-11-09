@@ -13,13 +13,13 @@ def is_stale(age: int, stale_minutes: int) -> bool:
     return age >= stale_minutes
 
 
-def is_fixed_run(newest_first: Sequence[Reading], run: int) -> bool:
-    """최근 run개 측정값의 온도와 습도가 모두 같으면 True (센서가 멈춘 것으로 의심)."""
-    if len(newest_first) < run:
-        return False
-    head = newest_first[:run]
-    first = head[0]
-    return all(r.temperature == first.temperature and r.humidity == first.humidity for r in head)
+def is_fixed_run(count: int, span_seconds: int, min_count: int, min_minutes: int) -> bool:
+    """같은 값이 이어진 구간이 개수와 시간 조건을 모두 채우면 True (센서가 멈춘 것으로 의심).
+
+    count: 최신 측정값과 온도, 습도가 같은 연속 측정값 개수 (최신 값 포함)
+    span_seconds: 그 구간의 첫 측정부터 최신 측정까지의 시간(초)
+    """
+    return count >= min_count and span_seconds >= min_minutes * 60
 
 
 def sensor_status(has_data: bool, is_stale: bool, is_suspect: bool) -> str:
