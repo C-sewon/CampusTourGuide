@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import models, schemas
+from . import config, models, processing, schemas
 from .database import Base, engine, get_db
 from .seed import seed_if_empty
 
@@ -21,10 +21,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Campus BLE Tour Guide API", lifespan=lifespan)
 
 
-def _reading_out(r: models.Reading | None) -> schemas.ReadingOut | None:
-    if r is None:
-        return None
-    age = max(0, (int(time.time()) - r.measured_at) // 60)
+def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingOut:
+    age = processing.age_minutes(r.measured_at, now)
     return schemas.ReadingOut(
         sensor_id=r.sensor_id,
         seq=r.seq,
@@ -32,21 +30,54 @@ def _reading_out(r: models.Reading | None) -> schemas.ReadingOut | None:
         temperature=r.temperature,
         humidity=r.humidity,
         age_minutes=age,
+        is_stale=processing.is_stale(age, config.STALE_MINUTES),
+        is_suspect=suspect,
     )
 
 
-def _latest_reading(db: Session, sensor_id: int | None) -> models.Reading | None:
+def _sensor_environment(
+    db: Session, sensor_id: int | None
+) -> tuple[schemas.ReadingOut | None, schemas.AverageOut | None]:
+    """센서의 최신 측정값과 최근 평균. 값은 저장된 그대로 두고 표시(flag)만 한다."""
     if sensor_id is None:
-        return None
-    return db.scalars(
+        return None, None
+
+    now = int(time.time())
+    newest_first = db.scalars(
         select(models.Reading)
         .where(models.Reading.sensor_id == sensor_id)
         .order_by(models.Reading.measured_at.desc(), models.Reading.seq.desc())
-        .limit(1)
-    ).first()
+        .limit(config.FIXED_VALUE_RUN)
+    ).all()
+    if not newest_first:
+        return None, None
+
+    suspect = processing.is_fixed_run(newest_first, config.FIXED_VALUE_RUN)
+    latest = _reading_out(newest_first[0], now, suspect)
+    if suspect:  # 멈춘 센서 값으로는 평균을 내지 않는다
+        return latest, None
+
+    window = db.scalars(
+        select(models.Reading).where(
+            models.Reading.sensor_id == sensor_id,
+            models.Reading.measured_at >= now - config.AVG_WINDOW_MINUTES * 60,
+        )
+    ).all()
+    result = processing.average(window)
+    average = None
+    if result is not None:
+        temperature, humidity, count = result
+        average = schemas.AverageOut(
+            temperature=temperature,
+            humidity=humidity,
+            count=count,
+            window_minutes=config.AVG_WINDOW_MINUTES,
+        )
+    return latest, average
 
 
 def _spot_out(db: Session, s: models.Spot) -> schemas.SpotOut:
+    latest, average = _sensor_environment(db, s.sensor_id)
     return schemas.SpotOut(
         id=s.id,
         name=s.name,
@@ -57,7 +88,8 @@ def _spot_out(db: Session, s: models.Spot) -> schemas.SpotOut:
         ble_name=s.ble_name,
         latitude=s.latitude,
         longitude=s.longitude,
-        latest_reading=_reading_out(_latest_reading(db, s.sensor_id)),
+        latest_reading=latest,
+        recent_average=average,
     )
 
 

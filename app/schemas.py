@@ -12,14 +12,23 @@ class ReadingIn(BaseModel):
 
 
 class ReadingOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     sensor_id: int
     seq: int
     measured_at: int
     temperature: float
     humidity: float
     age_minutes: int = Field(description="측정 후 경과 시간(분). 'n분 전 측정' 표시용")
+    is_stale: bool = Field(description="age_minutes 가 기준(STALE_MINUTES) 이상이면 true")
+    is_suspect: bool = Field(
+        description="같은 센서의 최근 측정값이 계속 같으면 true (센서 고장 의심). 값은 그대로 저장됨"
+    )
+
+
+class AverageOut(BaseModel):
+    temperature: float
+    humidity: float
+    count: int = Field(description="평균에 쓰인 측정값 개수")
+    window_minutes: int = Field(description="평균을 낸 시간 범위(분)")
 
 
 class ReadingResult(BaseModel):
@@ -39,6 +48,9 @@ class SpotOut(BaseModel):
     latitude: float | None
     longitude: float | None
     latest_reading: ReadingOut | None
+    recent_average: AverageOut | None = Field(
+        description="최근 평균. 측정값이 없거나 is_suspect 이면 null"
+    )
 
 
 class CourseSpotOut(BaseModel):
