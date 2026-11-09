@@ -31,6 +31,16 @@ class AverageOut(BaseModel):
     window_minutes: int = Field(description="평균을 낸 시간 범위(분)")
 
 
+class SensorStatusOut(BaseModel):
+    sensor_id: int
+    spot_names: list[str] = Field(description="이 센서를 쓰는 장소 이름. 연결된 장소가 없으면 빈 목록")
+    status: str = Field(description="ok | stale(오래됨) | suspect(고정값 의심) | no_data(측정값 없음)")
+    latest_reading: ReadingOut | None
+    last_received_at: int | None = Field(
+        description="서버가 이 센서의 값을 마지막으로 받은 시각(Unix 초). measured_at 과 크게 다르면 Pi 시계 의심"
+    )
+
+
 class ReadingResult(BaseModel):
     status: str  # "created" | "duplicate"
 

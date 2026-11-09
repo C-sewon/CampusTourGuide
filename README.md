@@ -77,6 +77,7 @@ pytest
 | GET | `/api/spots` | 장소 목록 + 최신 환경값 |
 | GET | `/api/spots/{id}` | 장소 상세 + 최신 환경값 |
 | GET | `/api/courses` | 코스 목록, 장소 순서, 총 소요시간(`total_minutes`) |
+| GET | `/api/sensors/status` | 센서별 상태. 통합 테스트와 시연 전 점검용 |
 | GET | `/health` | 헬스체크 |
 
 ### POST /api/readings 본문
@@ -107,6 +108,33 @@ pytest
 - `is_suspect`: 같은 센서의 최근 `FIXED_VALUE_RUN`(기본 5)개 측정값의 온도와 습도가 모두 같으면 `true`. 센서가 멈춘 것으로 의심하는 표시이고, **값은 버리지 않고 그대로 저장**합니다. 이때 `recent_average`는 `null`입니다.
 - `recent_average`: 최근 `AVG_WINDOW_MINUTES`(기본 30분) 안의 측정값 평균. 측정값이 없으면 `null`입니다.
 - `latest_reading`, `recent_average`는 연결된 센서가 없거나 측정값이 없으면 `null`입니다.
+
+### GET /api/sensors/status
+
+센서마다 한 항목씩, `sensor_id` 순서로 내려줍니다. 장소에 연결된 센서와 측정값을 보낸 적 있는 센서가 모두 나옵니다.
+
+```json
+[
+  {
+    "sensor_id": 1,
+    "spot_names": ["솔못"],
+    "status": "ok",
+    "latest_reading": { "temperature": 23.5, "humidity": 48.2, "age_minutes": 3, "is_stale": false, "is_suspect": false },
+    "last_received_at": 1731000010
+  }
+]
+```
+
+| `status` | 의미 |
+| --- | --- |
+| `ok` | 최근 값이 들어오고 있음 |
+| `stale` | 마지막 측정이 오래됨 (센서 전원 꺼짐, 근처에 앱 사용자가 없음 등) |
+| `suspect` | 최근 값이 계속 같음 (센서 멈춤 의심) |
+| `no_data` | 장소에는 연결되어 있지만 측정값을 받은 적 없음 |
+
+- 우선순위는 `no_data` > `stale` > `suspect` > `ok`입니다.
+- `last_received_at`은 서버가 값을 받은 시각입니다. `latest_reading.measured_at`과 크게 다르면 Pi 시계가 틀렸을 가능성이 있습니다.
+- 센서 값은 폰이 근처를 지나갈 때만 올라오므로, `stale`이 곧 센서 고장은 아닙니다.
 
 ### 설정 (환경변수)
 

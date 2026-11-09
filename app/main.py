@@ -2,7 +2,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -118,6 +118,38 @@ def post_reading(body: schemas.ReadingIn, response: Response, db: Session = Depe
         response.status_code = 200
         return schemas.ReadingResult(status="duplicate")
     return schemas.ReadingResult(status="created")
+
+
+@app.get("/api/sensors/status", response_model=list[schemas.SensorStatusOut])
+def sensors_status(db: Session = Depends(get_db)):
+    """센서별 상태. 장소에 연결된 센서와 측정값을 보낸 적 있는 센서를 모두 보여준다."""
+    spot_names: dict[int, list[str]] = {}
+    for s in db.scalars(
+        select(models.Spot).where(models.Spot.sensor_id.is_not(None)).order_by(models.Spot.id)
+    ):
+        spot_names.setdefault(s.sensor_id, []).append(s.name)
+    reported = set(db.scalars(select(models.Reading.sensor_id).distinct()).all())
+
+    result = []
+    for sensor_id in sorted(set(spot_names) | reported):
+        latest, _ = _sensor_environment(db, sensor_id)
+        last_received = db.scalar(
+            select(func.max(models.Reading.received_at)).where(models.Reading.sensor_id == sensor_id)
+        )
+        result.append(
+            schemas.SensorStatusOut(
+                sensor_id=sensor_id,
+                spot_names=spot_names.get(sensor_id, []),
+                status=processing.sensor_status(
+                    has_data=latest is not None,
+                    is_stale=latest.is_stale if latest else False,
+                    is_suspect=latest.is_suspect if latest else False,
+                ),
+                latest_reading=latest,
+                last_received_at=last_received,
+            )
+        )
+    return result
 
 
 @app.get("/api/spots", response_model=list[schemas.SpotOut])

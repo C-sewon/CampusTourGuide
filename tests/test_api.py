@@ -114,6 +114,37 @@ def test_recent_average_uses_window_only(client):
     assert avg["window_minutes"] == 30
 
 
+def test_sensor_status_lists_all_seeded_sensors(client):
+    sensors = client.get("/api/sensors/status").json()
+    assert [s["sensor_id"] for s in sensors] == [1, 2, 3, 4, 5]
+    assert all(s["status"] == "ok" for s in sensors)
+    assert sensors[0]["spot_names"] == ["솔못"]
+    assert sensors[0]["last_received_at"] is not None
+
+
+def test_sensor_status_reflects_stale_and_suspect(client, monkeypatch):
+    now = int(time.time())
+    for i in range(5):
+        client.post(
+            "/api/readings",
+            json=reading(sensor_id=2, seq=800 + i, measured_at=now - 50 + i, temperature=18.0, humidity=40.0),
+        )
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[2]["status"] == "suspect"
+    assert by_id[1]["status"] == "ok"
+
+    monkeypatch.setattr(config, "STALE_MINUTES", 2)  # 시드 측정값은 2분 전
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[1]["status"] == "stale"
+
+
+def test_sensor_status_includes_sensor_without_spot(client):
+    client.post("/api/readings", json=reading(sensor_id=99, seq=1))
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[99]["spot_names"] == []
+    assert by_id[99]["status"] == "ok"
+
+
 def test_spots_and_404(client):
     assert len(client.get("/api/spots").json()) == 5
     assert client.get("/api/spots/999").status_code == 404

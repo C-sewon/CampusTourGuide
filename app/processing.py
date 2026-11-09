@@ -22,6 +22,20 @@ def is_fixed_run(newest_first: Sequence[Reading], run: int) -> bool:
     return all(r.temperature == first.temperature and r.humidity == first.humidity for r in head)
 
 
+def sensor_status(has_data: bool, is_stale: bool, is_suspect: bool) -> str:
+    """센서 상태. no_data > stale > suspect > ok 순으로 우선한다.
+
+    값이 오래됐다면(stale) 새 값이 안 오는 것이 더 근본적인 문제이므로 suspect 보다 먼저 본다.
+    """
+    if not has_data:
+        return "no_data"
+    if is_stale:
+        return "stale"
+    if is_suspect:
+        return "suspect"
+    return "ok"
+
+
 def average(readings: Sequence[Reading]) -> tuple[float, float, int] | None:
     """(평균 온도, 평균 습도, 개수). 측정값이 없으면 None."""
     if not readings:
