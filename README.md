@@ -105,7 +105,7 @@ pytest
 ```
 
 - `is_stale`: 측정 후 `STALE_MINUTES`(기본 30분) 이상 지났으면 `true`. 센서 전원이 꺼진 경우에 "오래된 값"으로 표시하는 용도입니다.
-- `is_suspect`: 같은 센서의 최근 `FIXED_VALUE_RUN`(기본 5)개 측정값의 온도와 습도가 모두 같으면 `true`. 센서가 멈춘 것으로 의심하는 표시이고, **값은 버리지 않고 그대로 저장**합니다. 이때 `recent_average`는 `null`입니다.
+- `is_suspect`: 최신 측정값과 온도, 습도가 같은 값이 `FIXED_VALUE_MIN_COUNT`(기본 5)개 이상 연속이고, 그 구간이 `FIXED_VALUE_MINUTES`(기본 10분) 이상 이어지면 `true`. 센서가 멈춘 것으로 의심하는 표시이고, **값은 버리지 않고 그대로 저장**합니다. 이때 `recent_average`는 `null`입니다. 센서가 1초 간격으로 값을 내면 몇 초 동안 같은 값이 나올 수 있어서 시간 조건을 함께 봅니다.
 - `recent_average`: 최근 `AVG_WINDOW_MINUTES`(기본 30분) 안의 측정값 평균. 측정값이 없으면 `null`입니다.
 - `latest_reading`, `recent_average`는 연결된 센서가 없거나 측정값이 없으면 `null`입니다.
 
@@ -142,7 +142,8 @@ pytest
 | --- | --- | --- |
 | `DATABASE_URL` | `sqlite:///./campus_tour.db` | DB 주소 |
 | `STALE_MINUTES` | 30 | 오래된 값으로 보는 기준(분) |
-| `FIXED_VALUE_RUN` | 5 | 고정값으로 의심하는 연속 개수 (최소 2) |
+| `FIXED_VALUE_MIN_COUNT` | 5 | 고정값으로 의심하는 같은 값의 최소 연속 개수 (최소 2) |
+| `FIXED_VALUE_MINUTES` | 10 | 같은 값이 이 시간(분) 이상 이어져야 고정값으로 의심 (0이면 개수만 봄) |
 | `AVG_WINDOW_MINUTES` | 30 | 최근 평균의 시간 범위(분) |
 
 ## 일정
