@@ -31,8 +31,20 @@ class AverageOut(BaseModel):
     window_minutes: int = Field(description="평균을 낸 시간 범위(분)")
 
 
+class SensorOut(BaseModel):
+    sensor_id: int = Field(description="센서 번호. BLE 이름 opensrcN 의 N")
+    ble_name: str
+    mac: str
+    location: str = Field(description="설치 위치")
+    latitude: float | None
+    longitude: float | None
+
+
 class SensorStatusOut(BaseModel):
     sensor_id: int
+    ble_name: str | None = Field(description="등록된 센서의 BLE 이름. 등록되지 않은 센서면 null")
+    mac: str | None
+    location: str | None
     spot_names: list[str] = Field(description="이 센서를 쓰는 장소 이름. 연결된 장소가 없으면 빈 목록")
     status: str = Field(
         description="ok | stale(오래됨) | suspect(고정값 의심) | invalid(오류값만 옴) | no_data(측정값 없음)"
