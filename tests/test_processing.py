@@ -12,6 +12,14 @@ def test_age_minutes_floors_and_clamps_future():
     assert processing.age_minutes(2000, 1000) == 0  # 센서 시계가 빠른 경우
 
 
+def test_is_valid_reading_rejects_only_all_zero():
+    assert not processing.is_valid_reading(0.0, 0.0)
+    # 겨울에는 온도 0.0도가 실제로 나올 수 있어서 습도가 있으면 정상이다
+    assert processing.is_valid_reading(0.0, 55.0)
+    assert processing.is_valid_reading(-3.2, 0.0)
+    assert processing.is_valid_reading(21.0, 51.0)
+
+
 def test_is_stale_boundary():
     assert not processing.is_stale(29, 30)
     assert processing.is_stale(30, 30)

@@ -35,10 +35,17 @@ def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingO
     )
 
 
+def _valid_clause():
+    """온도와 습도가 모두 0.0인 측정값(센서 오류값)을 뺀 조건. processing.is_valid_reading 과 같은 기준."""
+    R = models.Reading
+    return or_(R.temperature != 0, R.humidity != 0)
+
+
 def _is_fixed(db: Session, newest: models.Reading) -> bool:
     """최신 측정값과 온도, 습도가 같은 값이 이어진 구간이 충분히 길면 True.
 
     같은 값이 시작된 시점은 '마지막으로 다른 값이 측정된 시각' 이후로 본다.
+    센서 오류값(0.0)은 구간 계산에서 제외한다.
     """
     R = models.Reading
     last_different = db.scalar(
@@ -46,6 +53,7 @@ def _is_fixed(db: Session, newest: models.Reading) -> bool:
             R.sensor_id == newest.sensor_id,
             R.measured_at <= newest.measured_at,
             or_(R.temperature != newest.temperature, R.humidity != newest.humidity),
+            _valid_clause(),
         )
     )
     in_run = [
@@ -53,6 +61,7 @@ def _is_fixed(db: Session, newest: models.Reading) -> bool:
         R.measured_at <= newest.measured_at,
         R.temperature == newest.temperature,
         R.humidity == newest.humidity,
+        _valid_clause(),
     ]
     if last_different is not None:
         in_run.append(R.measured_at > last_different)
@@ -69,14 +78,17 @@ def _is_fixed(db: Session, newest: models.Reading) -> bool:
 def _sensor_environment(
     db: Session, sensor_id: int | None
 ) -> tuple[schemas.ReadingOut | None, schemas.AverageOut | None]:
-    """센서의 최신 측정값과 최근 평균. 값은 저장된 그대로 두고 표시(flag)만 한다."""
+    """센서의 최신 측정값과 최근 평균. 값은 저장된 그대로 두고 표시(flag)만 한다.
+
+    온도와 습도가 모두 0.0인 오류값은 저장은 하지만 최신값과 평균에서 제외한다.
+    """
     if sensor_id is None:
         return None, None
 
     now = int(time.time())
     newest = db.scalars(
         select(models.Reading)
-        .where(models.Reading.sensor_id == sensor_id)
+        .where(models.Reading.sensor_id == sensor_id, _valid_clause())
         .order_by(models.Reading.measured_at.desc(), models.Reading.seq.desc())
         .limit(1)
     ).first()
@@ -92,6 +104,7 @@ def _sensor_environment(
         select(models.Reading).where(
             models.Reading.sensor_id == sensor_id,
             models.Reading.measured_at >= now - config.AVG_WINDOW_MINUTES * 60,
+            _valid_clause(),
         )
     ).all()
     result = processing.average(window)
