@@ -221,3 +221,14 @@ def test_zero_readings_do_not_count_toward_fixed_value(client, monkeypatch):
     for i in range(6):  # 0.0 / 0.0 이 6번 연속 와도 고정값으로 세지 않는다
         client.post("/api/readings", json=reading(sensor_id=1, seq=1200 + i, measured_at=now - 50 + i, temperature=0.0, humidity=0.0))
     assert client.get("/api/spots/1").json()["latest_reading"]["is_suspect"] is False
+
+
+def test_sensor_sending_only_zeros_has_invalid_status(client):
+    now = int(time.time())
+    for i in range(3):  # 센서 99 는 0.0 / 0.0 만 보낸다 (센서 3, 4 와 같은 상황)
+        client.post("/api/readings", json=reading(sensor_id=99, seq=1300 + i, measured_at=now - 30 + i, temperature=0.0, humidity=0.0))
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[99]["status"] == "invalid"
+    assert by_id[99]["latest_reading"] is None
+    assert by_id[99]["last_received_at"] is not None  # 통신은 되고 있다는 증거
+    assert by_id[1]["status"] == "ok"

@@ -49,6 +49,9 @@ def test_sensor_status_priority():
     assert processing.sensor_status(True, True, False) == "stale"
     # 오래된 데이터가 고정값이기도 하면 stale 을 우선한다
     assert processing.sensor_status(True, True, True) == "stale"
+    # 값은 오지만 전부 오류값인 센서는 값이 없는 센서와 구분한다
+    assert processing.sensor_status(False, False, False, only_invalid=True) == "invalid"
+    assert processing.sensor_status(False, False, False, only_invalid=False) == "no_data"
 
 
 def test_average():

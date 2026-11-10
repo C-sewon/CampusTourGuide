@@ -31,11 +31,17 @@ def is_fixed_run(count: int, span_seconds: int, min_count: int, min_minutes: int
     return count >= min_count and span_seconds >= min_minutes * 60
 
 
-def sensor_status(has_data: bool, is_stale: bool, is_suspect: bool) -> str:
-    """센서 상태. no_data > stale > suspect > ok 순으로 우선한다.
+def sensor_status(
+    has_data: bool, is_stale: bool, is_suspect: bool, only_invalid: bool = False
+) -> str:
+    """센서 상태. no_data > invalid > stale > suspect > ok 순으로 우선한다.
 
+    has_data: 정상 측정값이 하나라도 있는가
+    only_invalid: 측정값은 오지만 전부 오류값(온도와 습도가 모두 0.0)인가
     값이 오래됐다면(stale) 새 값이 안 오는 것이 더 근본적인 문제이므로 suspect 보다 먼저 본다.
     """
+    if only_invalid:
+        return "invalid"
     if not has_data:
         return "no_data"
     if is_stale:

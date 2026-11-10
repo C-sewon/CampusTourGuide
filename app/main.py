@@ -177,9 +177,11 @@ def sensors_status(db: Session = Depends(get_db)):
     result = []
     for sensor_id in sorted(set(spot_names) | reported):
         latest, _ = _sensor_environment(db, sensor_id)
-        last_received = db.scalar(
-            select(func.max(models.Reading.received_at)).where(models.Reading.sensor_id == sensor_id)
-        )
+        last_received, received_count = db.execute(
+            select(func.max(models.Reading.received_at), func.count()).where(
+                models.Reading.sensor_id == sensor_id
+            )
+        ).one()
         result.append(
             schemas.SensorStatusOut(
                 sensor_id=sensor_id,
@@ -188,6 +190,7 @@ def sensors_status(db: Session = Depends(get_db)):
                     has_data=latest is not None,
                     is_stale=latest.is_stale if latest else False,
                     is_suspect=latest.is_suspect if latest else False,
+                    only_invalid=latest is None and received_count > 0,
                 ),
                 latest_reading=latest,
                 last_received_at=last_received,
