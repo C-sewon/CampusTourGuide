@@ -71,7 +71,8 @@ uvicorn app.main:app --reload
 ```
 
 - API 문서(Swagger): http://127.0.0.1:8000/docs
-- 최초 실행 시 `campus_tour.db`가 생성되고 더미 데이터(장소 5곳, 코스 2개, 샘플 측정값)가 들어갑니다.
+- 최초 실행 시 `campus_tour.db`가 생성되고 센서 5대와 샘플 데이터(장소 5곳, 코스 2개, 샘플 측정값)가 들어갑니다. 샘플 장소와 코스는 설명에 `[샘플]`이 붙어 있고, 센서 설치 위치를 기준으로 만든 임시 데이터입니다.
+- 센서는 이미 만들어진 DB에도 자동으로 추가되지만, **장소와 코스 샘플은 DB가 비어 있을 때만** 들어갑니다. 예전에 만든 `campus_tour.db`로 새 샘플 장소를 보려면 파일을 지우고 다시 실행하세요.
 - DB 변경: 환경변수 `DATABASE_URL` (기본 `sqlite:///./campus_tour.db`)
 
 ## 테스트
@@ -88,6 +89,7 @@ pytest
 | GET | `/api/spots` | 장소 목록 + 최신 환경값 |
 | GET | `/api/spots/{id}` | 장소 상세 + 최신 환경값 |
 | GET | `/api/courses` | 코스 목록, 장소 순서, 총 소요시간(`total_minutes`) |
+| GET | `/api/sensors` | 등록된 센서 목록 (번호, BLE 이름, MAC, 설치 위치, 좌표) |
 | GET | `/api/sensors/status` | 센서별 상태. 통합 테스트와 시연 전 점검용 |
 | GET | `/health` | 헬스체크 |
 
@@ -123,13 +125,16 @@ pytest
 
 ### GET /api/sensors/status
 
-센서마다 한 항목씩, `sensor_id` 순서로 내려줍니다. 장소에 연결된 센서와 측정값을 보낸 적 있는 센서가 모두 나옵니다.
+센서마다 한 항목씩, `sensor_id` 순서로 내려줍니다. 등록된 센서, 장소에 연결된 센서, 측정값을 보낸 적 있는 센서가 모두 나옵니다. 등록되지 않은 센서는 `ble_name`, `mac`, `location`이 `null`입니다.
 
 ```json
 [
   {
     "sensor_id": 1,
-    "spot_names": ["솔못"],
+    "ble_name": "opensrc1",
+    "mac": "88:A2:9E:9B:5F:09",
+    "location": "도서관 뒤편 (진로창업본부 입구)",
+    "spot_names": ["도서관 뒤편"],
     "status": "ok",
     "latest_reading": { "temperature": 23.5, "humidity": 48.2, "age_minutes": 3, "is_stale": false, "is_suspect": false },
     "last_received_at": 1731000010
@@ -143,7 +148,7 @@ pytest
 | `stale` | 마지막 측정이 오래됨 (센서 전원 꺼짐, 근처에 앱 사용자가 없음 등) |
 | `suspect` | 최근 값이 계속 같음 (센서 멈춤 의심) |
 | `invalid` | 측정값은 오지만 전부 오류값(온도와 습도가 모두 0.0). 센서 점검 필요 |
-| `no_data` | 장소에는 연결되어 있지만 측정값을 받은 적 없음 |
+| `no_data` | 등록되었거나 장소에 연결되어 있지만 측정값을 받은 적 없음 |
 
 - 우선순위는 `no_data` > `invalid` > `stale` > `suspect` > `ok`입니다.
 - `last_received_at`은 서버가 값을 받은 시각입니다. `latest_reading.measured_at`과 크게 다르면 Pi 시계가 틀렸을 가능성이 있습니다.
