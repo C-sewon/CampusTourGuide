@@ -6,29 +6,51 @@ from sqlalchemy import select
 from . import models
 from .database import SessionLocal
 
-SPOTS = [
-    # (이름, 영문, 설명, sensor_id)
-    ("솔못", "Solmot Pond", "캠퍼스 중앙의 연못. 산책과 휴식 장소.", 1),
-    ("축제 광장", "Festival Plaza", "축제와 행사가 열리는 광장.", 2),
-    ("법대 앞 잔디밭", "Law School Lawn", "넓은 잔디밭. 피크닉 명소.", 3),
-    ("중앙도서관", "Central Library", "캠퍼스의 대표 학습 공간.", 4),
-    ("정문", "Main Gate", "캠퍼스 투어의 시작점.", 5),
+# 실제 센서 5대 (수업에서 공유된 정보). 센서 N 은 BLE 이름 opensrcN 이다.
+SENSORS = [
+    # (번호, BLE 이름, MAC, 설치 위치)
+    (1, "opensrc1", "88:A2:9E:9B:5F:09", "도서관 뒤편 (진로창업본부 입구)"),
+    (2, "opensrc2", "88:A2:9E:9B:5E:6A", "사회과학대 입구"),
+    (3, "opensrc3", "B8:27:EB:D3:40:06", "사회과학대 옆 이마트24 건너편"),
+    (4, "opensrc4", "D8:3A:DD:79:8F:80", "테니스장 앞"),
+    (5, "opensrc5", "D8:3A:DD:C1:89:5B", "테니스장 건너편"),
 ]
 
-# 코스: (이름, 영문, 설명, [(spot 순번 1~5, 분)])
+# [샘플] 센서 설치 위치를 기준으로 만든 임시 장소. 설명과 코스는 샘플이다.
+# 실제 장소 콘텐츠(솔못 등)는 장소 답사 후 교체한다.
+SPOTS = [
+    # (이름, 영문, 설명, sensor_id)
+    ("도서관 뒤편", "Behind the Library", "[샘플] 진로창업본부 입구가 있는 곳.", 1),
+    ("사회과학대 입구", "Social Sciences Entrance", "[샘플] 사회과학대학 입구.", 2),
+    ("이마트24 건너편", "Across from E-Mart24", "[샘플] 사회과학대 옆 길 건너편.", 3),
+    ("테니스장 앞", "In Front of the Tennis Courts", "[샘플] 테니스장 앞 길.", 4),
+    ("테니스장 건너편", "Across from the Tennis Courts", "[샘플] 테니스장 길 건너편.", 5),
+]
+
+# [샘플] 코스: (이름, 영문, 설명, [(spot 순번 1~5, 분)])
 COURSES = [
-    ("짧은 코스", "Short Course", "더위/추위에 추천하는 짧은 코스", [(5, 5), (1, 10), (3, 10)]),
+    ("짧은 코스", "Short Course", "[샘플] 더위/추위에 추천하는 짧은 코스", [(1, 5), (2, 10), (4, 10)]),
     (
         "기본 코스",
         "Standard Course",
-        "주요 장소를 도는 기본 코스",
-        [(5, 5), (1, 10), (2, 10), (3, 10), (4, 10)],
+        "[샘플] 장소를 모두 도는 기본 코스",
+        [(1, 5), (2, 10), (3, 10), (4, 10), (5, 10)],
     ),
 ]
 
 
+def _seed_sensors(db) -> None:
+    """등록되지 않은 센서만 추가한다. 이미 만들어진 DB에도 안전하게 실행된다."""
+    existing = set(db.scalars(select(models.Sensor.id)).all())
+    for sensor_id, ble_name, mac, location in SENSORS:
+        if sensor_id not in existing:
+            db.add(models.Sensor(id=sensor_id, ble_name=ble_name, mac=mac, location=location))
+    db.commit()
+
+
 def seed_if_empty() -> None:
     with SessionLocal() as db:
+        _seed_sensors(db)
         if db.scalars(select(models.Spot.id).limit(1)).first() is not None:
             return
         spots = [

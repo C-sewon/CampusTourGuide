@@ -164,9 +164,27 @@ def post_reading(body: schemas.ReadingIn, response: Response, db: Session = Depe
     return schemas.ReadingResult(status="created")
 
 
+@app.get("/api/sensors", response_model=list[schemas.SensorOut])
+def list_sensors(db: Session = Depends(get_db)):
+    """등록된 센서 목록 (BLE 이름, MAC, 설치 위치)."""
+    sensors = db.scalars(select(models.Sensor).order_by(models.Sensor.id)).all()
+    return [
+        schemas.SensorOut(
+            sensor_id=s.id,
+            ble_name=s.ble_name,
+            mac=s.mac,
+            location=s.location,
+            latitude=s.latitude,
+            longitude=s.longitude,
+        )
+        for s in sensors
+    ]
+
+
 @app.get("/api/sensors/status", response_model=list[schemas.SensorStatusOut])
 def sensors_status(db: Session = Depends(get_db)):
-    """센서별 상태. 장소에 연결된 센서와 측정값을 보낸 적 있는 센서를 모두 보여준다."""
+    """센서별 상태. 등록된 센서, 장소에 연결된 센서, 측정값을 보낸 적 있는 센서를 모두 보여준다."""
+    registered = {s.id: s for s in db.scalars(select(models.Sensor)).all()}
     spot_names: dict[int, list[str]] = {}
     for s in db.scalars(
         select(models.Spot).where(models.Spot.sensor_id.is_not(None)).order_by(models.Spot.id)
@@ -175,7 +193,8 @@ def sensors_status(db: Session = Depends(get_db)):
     reported = set(db.scalars(select(models.Reading.sensor_id).distinct()).all())
 
     result = []
-    for sensor_id in sorted(set(spot_names) | reported):
+    for sensor_id in sorted(set(registered) | set(spot_names) | reported):
+        sensor = registered.get(sensor_id)
         latest, _ = _sensor_environment(db, sensor_id)
         last_received, received_count = db.execute(
             select(func.max(models.Reading.received_at), func.count()).where(
@@ -185,6 +204,9 @@ def sensors_status(db: Session = Depends(get_db)):
         result.append(
             schemas.SensorStatusOut(
                 sensor_id=sensor_id,
+                ble_name=sensor.ble_name if sensor else None,
+                mac=sensor.mac if sensor else None,
+                location=sensor.location if sensor else None,
                 spot_names=spot_names.get(sensor_id, []),
                 status=processing.sensor_status(
                     has_data=latest is not None,

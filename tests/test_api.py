@@ -156,7 +156,7 @@ def test_sensor_status_lists_all_seeded_sensors(client):
     sensors = client.get("/api/sensors/status").json()
     assert [s["sensor_id"] for s in sensors] == [1, 2, 3, 4, 5]
     assert all(s["status"] == "ok" for s in sensors)
-    assert sensors[0]["spot_names"] == ["솔못"]
+    assert sensors[0]["spot_names"] == ["도서관 뒤편"]
     assert sensors[0]["last_received_at"] is not None
 
 
@@ -232,3 +232,63 @@ def test_sensor_sending_only_zeros_has_invalid_status(client):
     assert by_id[99]["latest_reading"] is None
     assert by_id[99]["last_received_at"] is not None  # 통신은 되고 있다는 증거
     assert by_id[1]["status"] == "ok"
+
+
+def test_real_sensors_are_registered(client):
+    from sqlalchemy import select
+
+    from app import models
+
+    with seed.SessionLocal() as db:
+        sensors = {s.id: s for s in db.scalars(select(models.Sensor)).all()}
+    assert sorted(sensors) == [1, 2, 3, 4, 5]
+    assert sensors[4].ble_name == "opensrc4"
+    assert sensors[4].mac == "D8:3A:DD:79:8F:80"
+    assert sensors[4].location == "테니스장 앞"
+
+
+def test_seed_sensors_is_idempotent(client):
+    from sqlalchemy import func, select
+
+    from app import models
+
+    seed.seed_if_empty()  # 다시 실행해도 센서가 늘어나지 않는다
+    with seed.SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(models.Sensor)) == 5
+
+
+def test_sensors_list_returns_registered_sensors(client):
+    sensors = client.get("/api/sensors").json()
+    assert [s["sensor_id"] for s in sensors] == [1, 2, 3, 4, 5]
+    assert sensors[0]["ble_name"] == "opensrc1"
+    assert sensors[0]["mac"] == "88:A2:9E:9B:5F:09"
+    assert sensors[3]["location"] == "테니스장 앞"
+    assert sensors[0]["latitude"] is None  # 위치 좌표는 현장 측정 후 채운다
+
+
+def test_sensor_status_includes_name_mac_and_location(client):
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[2]["ble_name"] == "opensrc2"
+    assert by_id[2]["mac"] == "88:A2:9E:9B:5E:6A"
+    assert by_id[2]["location"] == "사회과학대 입구"
+
+
+def test_unregistered_sensor_has_no_name_in_status(client):
+    client.post("/api/readings", json=reading(sensor_id=99, seq=1400))
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[99]["ble_name"] is None
+    assert by_id[99]["mac"] is None
+
+
+def test_registered_sensor_without_readings_is_no_data(client):
+    from sqlalchemy import delete
+
+    from app import models
+
+    with seed.SessionLocal() as db:  # 센서 5 의 시드 측정값을 지워 값이 없는 상태를 만든다
+        db.execute(delete(models.Reading).where(models.Reading.sensor_id == 5))
+        db.commit()
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[5]["status"] == "no_data"
+    assert by_id[5]["latest_reading"] is None
+    assert by_id[5]["last_received_at"] is None
