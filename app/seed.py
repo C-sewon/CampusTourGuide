@@ -6,6 +6,16 @@ from sqlalchemy import select
 from . import models
 from .database import SessionLocal
 
+# 실제 센서 5대 (수업에서 공유된 정보). 센서 N 은 BLE 이름 opensrcN 이다.
+SENSORS = [
+    # (번호, BLE 이름, MAC, 설치 위치)
+    (1, "opensrc1", "88:A2:9E:9B:5F:09", "도서관 뒤편 (진로창업본부 입구)"),
+    (2, "opensrc2", "88:A2:9E:9B:5E:6A", "사회과학대 입구"),
+    (3, "opensrc3", "B8:27:EB:D3:40:06", "사회과학대 옆 이마트24 건너편"),
+    (4, "opensrc4", "D8:3A:DD:79:8F:80", "테니스장 앞"),
+    (5, "opensrc5", "D8:3A:DD:C1:89:5B", "테니스장 건너편"),
+]
+
 SPOTS = [
     # (이름, 영문, 설명, sensor_id)
     ("솔못", "Solmot Pond", "캠퍼스 중앙의 연못. 산책과 휴식 장소.", 1),
@@ -27,8 +37,18 @@ COURSES = [
 ]
 
 
+def _seed_sensors(db) -> None:
+    """등록되지 않은 센서만 추가한다. 이미 만들어진 DB에도 안전하게 실행된다."""
+    existing = set(db.scalars(select(models.Sensor.id)).all())
+    for sensor_id, ble_name, mac, location in SENSORS:
+        if sensor_id not in existing:
+            db.add(models.Sensor(id=sensor_id, ble_name=ble_name, mac=mac, location=location))
+    db.commit()
+
+
 def seed_if_empty() -> None:
     with SessionLocal() as db:
+        _seed_sensors(db)
         if db.scalars(select(models.Spot.id).limit(1)).first() is not None:
             return
         spots = [

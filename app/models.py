@@ -4,6 +4,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
 
+class Sensor(Base):
+    """캠퍼스에 설치된 Pi 센서. 센서 N 은 BLE 이름이 opensrcN 인 센서이고 id 도 N 이다."""
+
+    __tablename__ = "sensors"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    ble_name: Mapped[str] = mapped_column(String(50), unique=True)
+    mac: Mapped[str] = mapped_column(String(17), unique=True)  # 대문자, 콜론 구분
+    location: Mapped[str] = mapped_column(String(100))  # 설치 위치
+    latitude: Mapped[float | None] = mapped_column(Float)
+    longitude: Mapped[float | None] = mapped_column(Float)
+
+
 class Spot(Base):
     """캠퍼스 장소. sensor_id 로 해당 장소의 Pi 와 연결된다."""
 

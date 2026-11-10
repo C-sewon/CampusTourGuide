@@ -232,3 +232,26 @@ def test_sensor_sending_only_zeros_has_invalid_status(client):
     assert by_id[99]["latest_reading"] is None
     assert by_id[99]["last_received_at"] is not None  # 통신은 되고 있다는 증거
     assert by_id[1]["status"] == "ok"
+
+
+def test_real_sensors_are_registered(client):
+    from sqlalchemy import select
+
+    from app import models
+
+    with seed.SessionLocal() as db:
+        sensors = {s.id: s for s in db.scalars(select(models.Sensor)).all()}
+    assert sorted(sensors) == [1, 2, 3, 4, 5]
+    assert sensors[4].ble_name == "opensrc4"
+    assert sensors[4].mac == "D8:3A:DD:79:8F:80"
+    assert sensors[4].location == "테니스장 앞"
+
+
+def test_seed_sensors_is_idempotent(client):
+    from sqlalchemy import func, select
+
+    from app import models
+
+    seed.seed_if_empty()  # 다시 실행해도 센서가 늘어나지 않는다
+    with seed.SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(models.Sensor)) == 5
