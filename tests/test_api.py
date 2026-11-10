@@ -195,3 +195,40 @@ def test_courses_total_minutes(client):
     for c in courses:
         assert c["total_minutes"] == sum(s["minutes"] for s in c["spots"])
         assert [s["position"] for s in c["spots"]] == list(range(1, len(c["spots"]) + 1))
+
+
+def test_all_zero_reading_is_stored_but_ignored_for_latest_and_average(client):
+    now = int(time.time())
+    # 센서 1 은 시드 측정값(21.0 / 51.0, 2분 전)이 있다. 더 최근에 0.0 / 0.0 이 올라와도 무시한다
+    r = client.post("/api/readings", json=reading(sensor_id=1, seq=1000, measured_at=now - 10, temperature=0.0, humidity=0.0))
+    assert r.status_code == 201  # 저장은 한다
+
+    spot = client.get("/api/spots/1").json()
+    assert spot["latest_reading"]["temperature"] == 21.0
+    assert spot["recent_average"]["count"] == 1
+    assert spot["recent_average"]["temperature"] == 21.0
+
+
+def test_zero_temperature_with_humidity_is_a_valid_reading(client):
+    now = int(time.time())
+    client.post("/api/readings", json=reading(sensor_id=1, seq=1100, measured_at=now - 10, temperature=0.0, humidity=62.0))
+    assert client.get("/api/spots/1").json()["latest_reading"]["temperature"] == 0.0
+
+
+def test_zero_readings_do_not_count_toward_fixed_value(client, monkeypatch):
+    monkeypatch.setattr(config, "FIXED_VALUE_MINUTES", 0)
+    now = int(time.time())
+    for i in range(6):  # 0.0 / 0.0 이 6번 연속 와도 고정값으로 세지 않는다
+        client.post("/api/readings", json=reading(sensor_id=1, seq=1200 + i, measured_at=now - 50 + i, temperature=0.0, humidity=0.0))
+    assert client.get("/api/spots/1").json()["latest_reading"]["is_suspect"] is False
+
+
+def test_sensor_sending_only_zeros_has_invalid_status(client):
+    now = int(time.time())
+    for i in range(3):  # 센서 99 는 0.0 / 0.0 만 보낸다 (센서 3, 4 와 같은 상황)
+        client.post("/api/readings", json=reading(sensor_id=99, seq=1300 + i, measured_at=now - 30 + i, temperature=0.0, humidity=0.0))
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[99]["status"] == "invalid"
+    assert by_id[99]["latest_reading"] is None
+    assert by_id[99]["last_received_at"] is not None  # 통신은 되고 있다는 증거
+    assert by_id[1]["status"] == "ok"

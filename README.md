@@ -110,7 +110,8 @@ pytest
 - `is_stale`: 측정 후 `STALE_MINUTES`(기본 30분) 이상 지났으면 `true`. 센서 전원이 꺼진 경우에 "오래된 값"으로 표시하는 용도입니다.
 - `is_suspect`: 최신 측정값과 온도, 습도가 같은 값이 `FIXED_VALUE_MIN_COUNT`(기본 5)개 이상 연속이고, 그 구간이 `FIXED_VALUE_MINUTES`(기본 10분) 이상 이어지면 `true`. 센서가 멈춘 것으로 의심하는 표시이고, **값은 버리지 않고 그대로 저장**합니다. 이때 `recent_average`는 `null`입니다. 센서가 1초 간격으로 값을 내면 몇 초 동안 같은 값이 나올 수 있어서 시간 조건을 함께 봅니다.
 - `recent_average`: 최근 `AVG_WINDOW_MINUTES`(기본 30분) 안의 측정값 평균. 측정값이 없으면 `null`입니다.
-- `latest_reading`, `recent_average`는 연결된 센서가 없거나 측정값이 없으면 `null`입니다.
+- `latest_reading`, `recent_average`는 연결된 센서가 없거나 정상 측정값이 없으면 `null`입니다.
+- **온도와 습도가 모두 0.0인 측정값은 센서 오류값으로 보고** 최신값, 최근 평균, 고정값 판정에서 제외합니다. 값은 버리지 않고 저장합니다. 연결 불량 등으로 센서가 0만 올려 보내는 경우가 있어서 입니다. 온도 0.0도는 겨울에 실제로 나올 수 있어서 습도가 0이 아니면 정상 값입니다.
 
 ### GET /api/sensors/status
 
@@ -133,9 +134,10 @@ pytest
 | `ok` | 최근 값이 들어오고 있음 |
 | `stale` | 마지막 측정이 오래됨 (센서 전원 꺼짐, 근처에 앱 사용자가 없음 등) |
 | `suspect` | 최근 값이 계속 같음 (센서 멈춤 의심) |
+| `invalid` | 측정값은 오지만 전부 오류값(온도와 습도가 모두 0.0). 센서 점검 필요 |
 | `no_data` | 장소에는 연결되어 있지만 측정값을 받은 적 없음 |
 
-- 우선순위는 `no_data` > `stale` > `suspect` > `ok`입니다.
+- 우선순위는 `no_data` > `invalid` > `stale` > `suspect` > `ok`입니다.
 - `last_received_at`은 서버가 값을 받은 시각입니다. `latest_reading.measured_at`과 크게 다르면 Pi 시계가 틀렸을 가능성이 있습니다.
 - 센서 값은 폰이 근처를 지나갈 때만 올라오므로, `stale`이 곧 센서 고장은 아닙니다.
 

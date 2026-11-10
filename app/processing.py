@@ -4,6 +4,15 @@ from collections.abc import Sequence
 from .models import Reading
 
 
+def is_valid_reading(temperature: float, humidity: float) -> bool:
+    """온도와 습도가 모두 0.0이면 센서 오류값으로 본다.
+
+    연결 불량 등으로 센서가 0만 올려 보내는 경우가 있다 (#9 에서 센서 3, 4 확인).
+    온도 0.0도는 겨울에 실제로 나올 수 있어서, 습도까지 함께 0일 때만 무효로 본다.
+    """
+    return not (temperature == 0.0 and humidity == 0.0)
+
+
 def age_minutes(measured_at: int, now: int) -> int:
     """측정 후 경과 시간(분). 센서 시계가 빨라 미래 시각이면 0."""
     return max(0, (now - measured_at) // 60)
@@ -22,11 +31,17 @@ def is_fixed_run(count: int, span_seconds: int, min_count: int, min_minutes: int
     return count >= min_count and span_seconds >= min_minutes * 60
 
 
-def sensor_status(has_data: bool, is_stale: bool, is_suspect: bool) -> str:
-    """센서 상태. no_data > stale > suspect > ok 순으로 우선한다.
+def sensor_status(
+    has_data: bool, is_stale: bool, is_suspect: bool, only_invalid: bool = False
+) -> str:
+    """센서 상태. no_data > invalid > stale > suspect > ok 순으로 우선한다.
 
+    has_data: 정상 측정값이 하나라도 있는가
+    only_invalid: 측정값은 오지만 전부 오류값(온도와 습도가 모두 0.0)인가
     값이 오래됐다면(stale) 새 값이 안 오는 것이 더 근본적인 문제이므로 suspect 보다 먼저 본다.
     """
+    if only_invalid:
+        return "invalid"
     if not has_data:
         return "no_data"
     if is_stale:

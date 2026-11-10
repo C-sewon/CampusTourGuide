@@ -12,6 +12,14 @@ def test_age_minutes_floors_and_clamps_future():
     assert processing.age_minutes(2000, 1000) == 0  # 센서 시계가 빠른 경우
 
 
+def test_is_valid_reading_rejects_only_all_zero():
+    assert not processing.is_valid_reading(0.0, 0.0)
+    # 겨울에는 온도 0.0도가 실제로 나올 수 있어서 습도가 있으면 정상이다
+    assert processing.is_valid_reading(0.0, 55.0)
+    assert processing.is_valid_reading(-3.2, 0.0)
+    assert processing.is_valid_reading(21.0, 51.0)
+
+
 def test_is_stale_boundary():
     assert not processing.is_stale(29, 30)
     assert processing.is_stale(30, 30)
@@ -41,6 +49,9 @@ def test_sensor_status_priority():
     assert processing.sensor_status(True, True, False) == "stale"
     # 오래된 데이터가 고정값이기도 하면 stale 을 우선한다
     assert processing.sensor_status(True, True, True) == "stale"
+    # 값은 오지만 전부 오류값인 센서는 값이 없는 센서와 구분한다
+    assert processing.sensor_status(False, False, False, only_invalid=True) == "invalid"
+    assert processing.sensor_status(False, False, False, only_invalid=False) == "no_data"
 
 
 def test_average():
