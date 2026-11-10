@@ -156,7 +156,7 @@ def test_sensor_status_lists_all_seeded_sensors(client):
     sensors = client.get("/api/sensors/status").json()
     assert [s["sensor_id"] for s in sensors] == [1, 2, 3, 4, 5]
     assert all(s["status"] == "ok" for s in sensors)
-    assert sensors[0]["spot_names"] == ["솔못"]
+    assert sensors[0]["spot_names"] == ["도서관 뒤편"]
     assert sensors[0]["last_received_at"] is not None
 
 
