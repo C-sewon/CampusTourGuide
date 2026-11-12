@@ -3,7 +3,7 @@ from app.models import Reading
 
 
 def r(temp=20.0, hum=50.0):
-    return Reading(sensor_id=1, seq=0, measured_at=0, temperature=temp, humidity=hum, received_at=0)
+    return Reading(sensor_id=1, measured_at=0, temperature=temp, humidity=hum, received_at=0)
 
 
 def test_age_minutes_floors_and_clamps_future():

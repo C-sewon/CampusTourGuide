@@ -34,17 +34,22 @@ class Spot(Base):
 
 
 class Reading(Base):
-    """Pi 측정값. (sensor_id, seq) 로 중복 제거."""
+    """Pi 측정값. 같은 센서의 같은 측정 시각(sensor_id, measured_at)은 한 번만 저장한다."""
 
     __tablename__ = "readings"
-    __table_args__ = (UniqueConstraint("sensor_id", "seq", name="uq_reading_sensor_seq"),)
+    __table_args__ = (
+        UniqueConstraint("sensor_id", "measured_at", name="uq_reading_sensor_measured_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    sensor_id: Mapped[int] = mapped_column(Integer, index=True)
-    seq: Mapped[int] = mapped_column(Integer)
-    measured_at: Mapped[int] = mapped_column(Integer, index=True)  # Unix 초
+    sensor_id: Mapped[int] = mapped_column(Integer, index=True)  # sensors.id
+    measured_at: Mapped[int] = mapped_column(Integer, index=True)  # Unix 초 (Pi 시계)
     temperature: Mapped[float] = mapped_column(Float)  # ℃
     humidity: Mapped[float] = mapped_column(Float)  # %
+    aqi: Mapped[int | None] = mapped_column(Integer)  # 공기질 지수 (화면에는 쓰지 않고 저장만)
+    tvoc: Mapped[int | None] = mapped_column(Integer)  # ppb
+    eco2: Mapped[int | None] = mapped_column(Integer)  # ppm
+    rssi: Mapped[int | None] = mapped_column(Integer)  # 폰이 받은 신호 세기 (dBm)
     received_at: Mapped[int] = mapped_column(Integer)  # 서버 수신 시각 (Unix 초)
 
 

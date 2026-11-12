@@ -25,7 +25,6 @@ def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingO
     age = processing.age_minutes(r.measured_at, now)
     return schemas.ReadingOut(
         sensor_id=r.sensor_id,
-        seq=r.seq,
         measured_at=r.measured_at,
         temperature=r.temperature,
         humidity=r.humidity,
@@ -89,7 +88,7 @@ def _sensor_environment(
     newest = db.scalars(
         select(models.Reading)
         .where(models.Reading.sensor_id == sensor_id, _valid_clause())
-        .order_by(models.Reading.measured_at.desc(), models.Reading.seq.desc())
+        .order_by(models.Reading.measured_at.desc(), models.Reading.id.desc())
         .limit(1)
     ).first()
     if newest is None:
@@ -142,19 +141,51 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/api/readings", response_model=schemas.ReadingResult, status_code=201)
+def _find_sensor(db: Session, mac: str | None, ble_name: str) -> models.Sensor | None:
+    """업로드된 센서를 찾는다. MAC 이 있으면 MAC 으로만 찾고, 없으면(iOS) BLE 이름으로 찾는다.
+
+    MAC 이 있는데 등록된 MAC 과 다르면, 이름이 같아도 다른 기기(다른 팀 센서 등)일 수 있어 찾지 않는다.
+    """
+    if mac:
+        return db.scalars(select(models.Sensor).where(models.Sensor.mac == mac)).first()
+    return db.scalars(select(models.Sensor).where(models.Sensor.ble_name == ble_name)).first()
+
+
+@app.post(
+    "/api/readings",
+    response_model=schemas.ReadingResult,
+    status_code=201,
+    responses={404: {"description": "등록되지 않은 센서. 재시도하지 않아도 된다"}},
+)
 def post_reading(body: schemas.ReadingIn, response: Response, db: Session = Depends(get_db)):
-    """측정값 업로드. 같은 (sensor_id, seq)가 다시 오면 200 + duplicate (앱 재전송 대응)."""
+    """측정값 업로드. 같은 센서의 같은 measured_at 이 다시 오면 200 + duplicate (앱 재전송 대응)."""
+    sensor = _find_sensor(db, body.mac, body.ble_name)
+    if sensor is None:
+        raise HTTPException(404, "등록되지 않은 센서입니다")
+
     exists = db.scalars(
         select(models.Reading.id).where(
-            models.Reading.sensor_id == body.sensor_id, models.Reading.seq == body.seq
+            models.Reading.sensor_id == sensor.id,
+            models.Reading.measured_at == body.measured_at,
         )
     ).first()
     if exists is not None:
         response.status_code = 200
         return schemas.ReadingResult(status="duplicate")
 
-    db.add(models.Reading(**body.model_dump(), received_at=int(time.time())))
+    db.add(
+        models.Reading(
+            sensor_id=sensor.id,
+            measured_at=body.measured_at,
+            temperature=body.temperature,
+            humidity=body.humidity,
+            aqi=body.aqi,
+            tvoc=body.tvoc,
+            eco2=body.eco2,
+            rssi=body.rssi,
+            received_at=int(time.time()),
+        )
+    )
     try:
         db.commit()
     except IntegrityError:  # 동시 요청으로 같은 키가 먼저 들어간 경우

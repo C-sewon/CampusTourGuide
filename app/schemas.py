@@ -1,19 +1,34 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ReadingIn(BaseModel):
-    """앱이 올리는 측정값. BLE 바이너리(x100 정수)는 앱에서 풀어 실수로 보낸다."""
+    """앱이 올리는 측정값. BLE 바이너리(x100 정수)는 앱에서 풀어 실수로 보낸다.
 
-    sensor_id: int = Field(ge=0, le=255)
-    seq: int = Field(ge=0, le=2**32 - 1)
-    measured_at: int = Field(ge=0, description="측정 시각 (Unix 초)")
+    센서는 mac 으로 찾고, mac 이 없으면(iOS) ble_name 으로 찾는다.
+    """
+
+    ble_name: str = Field(min_length=1, max_length=50, description="BLE 광고 이름 (예: opensrc1)")
+    mac: str | None = Field(
+        default=None,
+        pattern=r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$",
+        description="센서 MAC 주소. iOS 는 알 수 없어 생략할 수 있다",
+    )
+    measured_at: int = Field(ge=0, description="패킷의 측정 시각 (Unix 초)")
     temperature: float = Field(ge=-40, le=85, description="℃")
     humidity: float = Field(ge=0, le=100, description="%")
+    aqi: int | None = Field(default=None, ge=0, le=255)
+    tvoc: int | None = Field(default=None, ge=0, le=65535, description="ppb")
+    eco2: int | None = Field(default=None, ge=0, le=65535, description="ppm")
+    rssi: int | None = Field(default=None, ge=-127, le=20, description="dBm")
+
+    @field_validator("mac")
+    @classmethod
+    def normalize_mac(cls, v: str | None) -> str | None:
+        return v.upper().replace("-", ":") if v else v
 
 
 class ReadingOut(BaseModel):
     sensor_id: int
-    seq: int
     measured_at: int
     temperature: float
     humidity: float

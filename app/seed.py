@@ -77,7 +77,6 @@ def seed_if_empty() -> None:
             db.add(
                 models.Reading(
                     sensor_id=sid,
-                    seq=1,
                     measured_at=now - 120,
                     temperature=20.0 + sid,
                     humidity=50.0 + sid,
