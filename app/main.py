@@ -7,12 +7,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from . import config, models, processing, schemas
-from .database import Base, engine, get_db
+from .database import Base, engine, ensure_current_schema, get_db
 from .seed import seed_if_empty
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_current_schema()
     Base.metadata.create_all(engine)
     seed_if_empty()
     yield

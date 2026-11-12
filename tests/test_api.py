@@ -386,3 +386,23 @@ def test_sensor_with_only_out_of_range_values_is_invalid(client):
     client.post("/api/readings", json=reading(sensor_id=99, measured_at=now - 10, temperature=120.0, humidity=40.0))
     by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
     assert by_id[99]["status"] == "invalid"
+
+
+def test_old_readings_table_is_detected_with_clear_message():
+    import pytest
+    from sqlalchemy import create_engine, text
+
+    from app.database import ensure_current_schema
+
+    old = create_engine("sqlite://")
+    with old.begin() as conn:  # 센서ID와 일련번호 기준이던 예전 구조
+        conn.execute(text("CREATE TABLE readings (id INTEGER PRIMARY KEY, sensor_id INTEGER, seq INTEGER)"))
+    with pytest.raises(RuntimeError, match="campus_tour.db"):
+        ensure_current_schema(old)
+
+    new = create_engine("sqlite://")
+    Base.metadata.create_all(new)
+    ensure_current_schema(new)  # 현재 구조는 통과한다
+
+    empty = create_engine("sqlite://")
+    ensure_current_schema(empty)  # 표가 아직 없으면 통과한다
