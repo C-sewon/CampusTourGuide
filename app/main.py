@@ -2,7 +2,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Response
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -35,9 +35,13 @@ def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingO
 
 
 def _valid_clause():
-    """온도와 습도가 모두 0.0인 측정값(센서 오류값)을 뺀 조건. processing.is_valid_reading 과 같은 기준."""
+    """오류값(범위 밖, 또는 온도와 습도가 모두 0.0)을 뺀 조건. processing.is_valid_reading 과 같은 기준."""
     R = models.Reading
-    return or_(R.temperature != 0, R.humidity != 0)
+    return and_(
+        or_(R.temperature != 0, R.humidity != 0),
+        R.temperature.between(*processing.TEMPERATURE_RANGE),
+        R.humidity.between(*processing.HUMIDITY_RANGE),
+    )
 
 
 def _is_fixed(db: Session, newest: models.Reading) -> bool:

@@ -20,6 +20,17 @@ def test_is_valid_reading_rejects_only_all_zero():
     assert processing.is_valid_reading(21.0, 51.0)
 
 
+def test_is_valid_reading_rejects_out_of_range():
+    assert not processing.is_valid_reading(85.1, 50.0)
+    assert not processing.is_valid_reading(-40.1, 50.0)
+    assert not processing.is_valid_reading(20.0, 100.1)
+    assert not processing.is_valid_reading(20.0, -0.1)
+    assert not processing.is_valid_reading(float("nan"), 50.0)
+    # 경계값은 정상이다
+    assert processing.is_valid_reading(85.0, 100.0)
+    assert processing.is_valid_reading(-40.0, 0.0)
+
+
 def test_is_stale_boundary():
     assert not processing.is_stale(29, 30)
     assert processing.is_stale(30, 30)

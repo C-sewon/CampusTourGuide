@@ -4,12 +4,24 @@ from collections.abc import Sequence
 from .models import Reading
 
 
-def is_valid_reading(temperature: float, humidity: float) -> bool:
-    """온도와 습도가 모두 0.0이면 센서 오류값으로 본다.
+# 센서(AHT21)가 낼 수 있는 물리적 범위. 벗어나면 오류값으로 본다
+TEMPERATURE_RANGE = (-40.0, 85.0)  # ℃
+HUMIDITY_RANGE = (0.0, 100.0)  # %
 
-    연결 불량 등으로 센서가 0만 올려 보내는 경우가 있다 (#9 에서 센서 3, 4 확인).
+
+def is_valid_reading(temperature: float, humidity: float) -> bool:
+    """오류값이 아니면 True. 아래 경우는 센서 오류값으로 본다.
+
+    - 온도나 습도가 물리적 범위를 벗어남
+    - 온도와 습도가 모두 0.0 (연결 불량 등으로 0만 올라오는 경우, #9 에서 센서 3, 4 확인)
+
     온도 0.0도는 겨울에 실제로 나올 수 있어서, 습도까지 함께 0일 때만 무효로 본다.
+    NaN 은 범위 비교가 거짓이 되어 무효로 처리된다.
     """
+    if not (TEMPERATURE_RANGE[0] <= temperature <= TEMPERATURE_RANGE[1]):
+        return False
+    if not (HUMIDITY_RANGE[0] <= humidity <= HUMIDITY_RANGE[1]):
+        return False
     return not (temperature == 0.0 and humidity == 0.0)
 
 

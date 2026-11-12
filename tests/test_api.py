@@ -66,8 +66,8 @@ def test_post_reading_created_then_duplicate(client):
 
 
 def test_post_reading_validation(client):
-    assert client.post("/api/readings", json=reading(humidity=150)).status_code == 422
     assert client.post("/api/readings", json=reading(mac="not-a-mac")).status_code == 422
+    assert client.post("/api/readings", json=reading(aqi=-1)).status_code == 422
     body = reading()
     del body["ble_name"]
     assert client.post("/api/readings", json=body).status_code == 422
@@ -367,3 +367,22 @@ def test_registered_sensor_without_readings_is_no_data(client):
     assert by_id[5]["status"] == "no_data"
     assert by_id[5]["latest_reading"] is None
     assert by_id[5]["last_received_at"] is None
+
+
+def test_out_of_range_reading_is_stored_but_ignored(client):
+    now = int(time.time())
+    # 습도 150%, 온도 120도는 물리적으로 불가능한 값이다. 거절하지 않고 저장한 뒤 제외한다
+    assert client.post("/api/readings", json=reading(measured_at=now - 20, humidity=150.0)).status_code == 201
+    assert client.post("/api/readings", json=reading(measured_at=now - 10, temperature=120.0)).status_code == 201
+
+    spot = client.get("/api/spots/1").json()
+    assert spot["latest_reading"]["temperature"] == 21.0  # 시드의 정상 값이 유지된다
+    assert spot["recent_average"]["count"] == 1
+
+
+def test_sensor_with_only_out_of_range_values_is_invalid(client):
+    register_sensor(99)
+    now = int(time.time())
+    client.post("/api/readings", json=reading(sensor_id=99, measured_at=now - 10, temperature=120.0, humidity=40.0))
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[99]["status"] == "invalid"
