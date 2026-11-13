@@ -482,3 +482,25 @@ def test_old_sensors_table_is_detected_too():
         conn.execute(text("CREATE TABLE sensors (id INTEGER PRIMARY KEY, ble_name TEXT, mac TEXT, location TEXT)"))
     with pytest.raises(RuntimeError, match="sensors"):
         ensure_current_schema(old)
+
+
+def test_seed_without_sample_readings_has_no_fake_values():
+    from sqlalchemy import create_engine, func, select
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    Base.metadata.create_all(engine)
+    original = seed.SessionLocal
+    seed.SessionLocal = Session
+    try:
+        seed.seed_if_empty(sample_readings=False)
+    finally:
+        seed.SessionLocal = original
+    from app import models
+
+    with Session() as db:
+        assert db.scalar(select(func.count()).select_from(models.Reading)) == 0
+        assert db.scalar(select(func.count()).select_from(models.Spot)) == 5  # 장소와 센서는 들어간다
+        assert db.scalar(select(func.count()).select_from(models.Sensor)) == 5

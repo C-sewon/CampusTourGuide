@@ -106,3 +106,22 @@ class CourseOut(BaseModel):
     description: str
     total_minutes: int
     spots: list[CourseSpotOut]
+
+
+class LabSyncResultOut(BaseModel):
+    fetched: int = Field(description="연구실 API 가 준 항목 수")
+    unknown_sensor: int = Field(description="등록되지 않은 센서라 건너뜀")
+    not_fresh: int = Field(description="1시간 이내 갱신이 아니라 건너뜀")
+    invalid: int = Field(description="시각이나 온도를 읽을 수 없어 건너뜀")
+    duplicate: int = Field(description="이미 저장된 값")
+    stored: int = Field(description="새로 저장")
+
+
+class LabSyncStatusOut(BaseModel):
+    enabled: bool
+    interval_seconds: int
+    url: str
+    last_attempt: int | None = Field(description="마지막으로 시도한 시각(Unix 초)")
+    last_success: int | None = Field(description="마지막으로 성공한 시각(Unix 초)")
+    last_error: str | None = Field(description="마지막 시도가 실패했다면 원인")
+    last_result: LabSyncResultOut | None

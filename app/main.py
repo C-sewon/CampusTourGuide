@@ -1,3 +1,4 @@
+import asyncio
 import time
 from contextlib import asynccontextmanager
 
@@ -6,17 +7,26 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import config, models, processing, schemas
+from . import config, lab_sync, models, processing, schemas
 from .database import Base, engine, ensure_current_schema, get_db
 from .seed import seed_if_empty
+
+
+async def _lab_sync_loop():
+    while True:
+        await asyncio.to_thread(lab_sync.run_once)
+        await asyncio.sleep(config.LAB_SYNC_SECONDS)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_current_schema()
     Base.metadata.create_all(engine)
-    seed_if_empty()
+    seed_if_empty(sample_readings=not config.LAB_SYNC_ENABLED)
+    task = asyncio.create_task(_lab_sync_loop()) if config.LAB_SYNC_ENABLED else None
     yield
+    if task is not None:
+        task.cancel()
 
 
 app = FastAPI(title="Campus BLE Tour Guide API", lifespan=lifespan)
@@ -154,6 +164,17 @@ def _spot_out(db: Session, s: models.Spot) -> schemas.SpotOut:
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/lab-sync/status", response_model=schemas.LabSyncStatusOut)
+def lab_sync_status():
+    """연구실 센서 데이터를 가져오는 작업의 마지막 결과. 연동이 잘 되는지 점검하는 용도."""
+    return schemas.LabSyncStatusOut(
+        enabled=config.LAB_SYNC_ENABLED,
+        interval_seconds=config.LAB_SYNC_SECONDS,
+        url=config.LAB_SYNC_URL,
+        **lab_sync.state,
+    )
 
 
 def _find_sensor(db: Session, mac: str | None, ble_name: str) -> models.Sensor | None:

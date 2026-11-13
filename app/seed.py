@@ -63,7 +63,12 @@ def _seed_sensors(db) -> None:
     db.commit()
 
 
-def seed_if_empty() -> None:
+def seed_if_empty(sample_readings: bool = True) -> None:
+    """센서, 샘플 장소와 코스를 넣는다. DB 가 비어 있을 때만 장소와 코스가 들어간다.
+
+    sample_readings: 센서마다 샘플 측정값 1건을 넣는다. 연구실 연동이 켜져 있으면 실제 값이 들어오므로
+    샘플 값이 실제 값처럼 보이지 않게 끈다. (테스트와 연동을 끈 오프라인 개발에서는 켠다)
+    """
     with SessionLocal() as db:
         _seed_sensors(db)
         if db.scalars(select(models.Spot.id).limit(1)).first() is not None:
@@ -88,7 +93,7 @@ def seed_if_empty() -> None:
             )
 
         now = int(time.time())
-        for sid in range(1, 6):  # 센서마다 샘플 측정값 1건
+        for sid in range(1, 6) if sample_readings else ():  # 센서마다 샘플 측정값 1건
             db.add(
                 models.Reading(
                     sensor_id=sid,
