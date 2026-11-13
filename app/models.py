@@ -13,6 +13,7 @@ class Sensor(Base):
     ble_name: Mapped[str] = mapped_column(String(50), unique=True)
     mac: Mapped[str] = mapped_column(String(17), unique=True)  # 대문자, 콜론 구분
     location: Mapped[str] = mapped_column(String(100))  # 설치 위치
+    lab_name: Mapped[str | None] = mapped_column(String(20), unique=True)  # 연구실 API 의 센서 이름 (예: sensor 07)
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)
 

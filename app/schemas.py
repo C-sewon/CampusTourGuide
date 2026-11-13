@@ -51,6 +51,7 @@ class SensorOut(BaseModel):
     ble_name: str
     mac: str
     location: str = Field(description="설치 위치")
+    lab_name: str | None = Field(description="연구실 공용 API 의 센서 이름 (예: sensor 07)")
     latitude: float | None
     longitude: float | None
 

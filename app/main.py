@@ -210,6 +210,7 @@ def list_sensors(db: Session = Depends(get_db)):
             ble_name=s.ble_name,
             mac=s.mac,
             location=s.location,
+            lab_name=s.lab_name,
             latitude=s.latitude,
             longitude=s.longitude,
         )

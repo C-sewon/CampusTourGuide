@@ -339,7 +339,8 @@ def test_sensors_list_returns_registered_sensors(client):
     assert sensors[0]["ble_name"] == "opensrc1"
     assert sensors[0]["mac"] == "88:A2:9E:9B:5F:09"
     assert sensors[3]["location"] == "테니스장 앞"
-    assert sensors[0]["latitude"] is None  # 위치 좌표는 현장 측정 후 채운다
+    assert sensors[0]["lab_name"] == "sensor 07"  # 연구실 공용 API 의 이름 (부록 C)
+    assert (sensors[0]["latitude"], sensors[0]["longitude"]) == (36.628895, 127.457839)
 
 
 def test_sensor_status_includes_name_mac_and_location(client):
@@ -406,3 +407,22 @@ def test_old_readings_table_is_detected_with_clear_message():
 
     empty = create_engine("sqlite://")
     ensure_current_schema(empty)  # 표가 아직 없으면 통과한다
+
+
+def test_seed_fills_missing_lab_name_and_coordinates_without_overwriting(client):
+    from sqlalchemy import select
+
+    from app import models
+
+    with seed.SessionLocal() as db:
+        s1, s2 = db.get(models.Sensor, 1), db.get(models.Sensor, 2)
+        s1.lab_name, s1.latitude, s1.longitude = None, None, None  # 예전 DB 처럼 비어 있는 상태
+        s2.latitude = 1.5  # 이미 채워진 값은 덮어쓰지 않는다
+        db.commit()
+
+    seed.seed_if_empty()
+
+    with seed.SessionLocal() as db:
+        s1, s2 = db.get(models.Sensor, 1), db.get(models.Sensor, 2)
+        assert (s1.lab_name, s1.latitude) == ("sensor 07", 36.628895)
+        assert s2.latitude == 1.5
