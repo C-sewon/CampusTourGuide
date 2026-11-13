@@ -31,6 +31,13 @@ def test_is_valid_reading_rejects_out_of_range():
     assert processing.is_valid_reading(-40.0, 0.0)
 
 
+def test_is_valid_reading_without_humidity_checks_temperature_only():
+    # 연구실 API 값은 습도가 없다. 온도가 정상 범위면 정상이다
+    assert processing.is_valid_reading(0.0, None)  # 겨울 0도는 실제로 나올 수 있다
+    assert processing.is_valid_reading(22.0, None)
+    assert not processing.is_valid_reading(120.0, None)
+
+
 def test_is_stale_boundary():
     assert not processing.is_stale(29, 30)
     assert processing.is_stale(30, 30)
@@ -68,3 +75,9 @@ def test_sensor_status_priority():
 def test_average():
     assert processing.average([]) is None
     assert processing.average([r(20, 40), r(25, 60)]) == (22.5, 50.0, 2)
+
+
+def test_average_ignores_missing_humidity():
+    # 습도가 없는 값은 온도 평균에만 들어가고, 습도 평균은 있는 값만으로 낸다
+    assert processing.average([r(20, 40), r(22, None)]) == (21.0, 40.0, 2)
+    assert processing.average([r(20, None), r(22, None)]) == (21.0, None, 2)

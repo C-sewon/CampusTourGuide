@@ -426,3 +426,59 @@ def test_seed_fills_missing_lab_name_and_coordinates_without_overwriting(client)
         s1, s2 = db.get(models.Sensor, 1), db.get(models.Sensor, 2)
         assert (s1.lab_name, s1.latitude) == ("sensor 07", 36.628895)
         assert s2.latitude == 1.5
+
+
+def add_lab_reading(sensor_id, measured_at, temperature):
+    """연구실 API 에서 가져온 값(습도 없음, source=lab)을 직접 넣는다."""
+    from app import models
+
+    with seed.SessionLocal() as db:
+        db.add(
+            models.Reading(
+                sensor_id=sensor_id, measured_at=measured_at, temperature=temperature,
+                humidity=None, received_at=int(time.time()), source="lab",
+            )
+        )
+        db.commit()
+
+
+def test_lab_reading_without_humidity_is_shown_as_latest(client):
+    now = int(time.time())
+    add_lab_reading(1, now - 30, 22.0)  # 시드(21.0 / 51.0, 2분 전)보다 최신
+
+    spot = client.get("/api/spots/1").json()
+    assert spot["latest_reading"]["temperature"] == 22.0
+    assert spot["latest_reading"]["humidity"] is None
+    # 평균: 온도는 두 값, 습도는 값이 있는 시드 하나만으로
+    assert spot["recent_average"]["count"] == 2
+    assert spot["recent_average"]["temperature"] == 21.5
+    assert spot["recent_average"]["humidity"] == 51.0
+
+
+def test_lab_temperature_staying_the_same_is_not_a_fixed_value(client, monkeypatch):
+    monkeypatch.setattr(config, "FIXED_VALUE_MINUTES", 0)  # 시간 조건 없이 개수만 본다
+    now = int(time.time())
+    for i in range(8):  # 정수 온도는 같은 값이 계속 나오는 것이 정상이다
+        add_lab_reading(2, now - 80 + i * 10, 18.0)
+    assert client.get("/api/spots/2").json()["latest_reading"]["is_suspect"] is False
+
+
+def test_sensor_with_only_lab_readings_is_ok(client):
+    register_sensor(99)
+    add_lab_reading(99, int(time.time()) - 60, 15.0)
+    by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
+    assert by_id[99]["status"] == "ok"
+    assert by_id[99]["latest_reading"]["humidity"] is None
+
+
+def test_old_sensors_table_is_detected_too():
+    import pytest
+    from sqlalchemy import create_engine, text
+
+    from app.database import ensure_current_schema
+
+    old = create_engine("sqlite://")
+    with old.begin() as conn:  # lab_name 칸이 없던 예전 sensors 표
+        conn.execute(text("CREATE TABLE sensors (id INTEGER PRIMARY KEY, ble_name TEXT, mac TEXT, location TEXT)"))
+    with pytest.raises(RuntimeError, match="sensors"):
+        ensure_current_schema(old)

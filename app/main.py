@@ -36,12 +36,15 @@ def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingO
 
 
 def _valid_clause():
-    """오류값(범위 밖, 또는 온도와 습도가 모두 0.0)을 뺀 조건. processing.is_valid_reading 과 같은 기준."""
+    """오류값을 뺀 조건. processing.is_valid_reading 과 같은 기준.
+
+    습도가 없는 값(NULL)은 온도 범위만 본다. SQL 에서 NULL 비교는 거짓이 되므로 NULL 을 따로 다룬다.
+    """
     R = models.Reading
     return and_(
-        or_(R.temperature != 0, R.humidity != 0),
         R.temperature.between(*processing.TEMPERATURE_RANGE),
-        R.humidity.between(*processing.HUMIDITY_RANGE),
+        or_(R.humidity.is_(None), R.humidity.between(*processing.HUMIDITY_RANGE)),
+        or_(R.temperature != 0, R.humidity.is_(None), R.humidity != 0),
     )
 
 
@@ -50,12 +53,18 @@ def _is_fixed(db: Session, newest: models.Reading) -> bool:
 
     같은 값이 시작된 시점은 '마지막으로 다른 값이 측정된 시각' 이후로 본다.
     센서 오류값(0.0)은 구간 계산에서 제외한다.
+
+    BLE 로 받은 값(소수점 둘째 자리까지)에만 적용한다. 연구실 API 값은 소수점이 버려진 정수 온도라서
+    몇 분 동안 같은 값이 나오는 것이 정상이므로 고정값으로 보지 않는다.
     """
     R = models.Reading
+    if newest.source != "ble" or newest.humidity is None:
+        return False
     last_different = db.scalar(
         select(func.max(R.measured_at)).where(
             R.sensor_id == newest.sensor_id,
             R.measured_at <= newest.measured_at,
+            R.source == "ble",
             or_(R.temperature != newest.temperature, R.humidity != newest.humidity),
             _valid_clause(),
         )
@@ -63,6 +72,7 @@ def _is_fixed(db: Session, newest: models.Reading) -> bool:
     in_run = [
         R.sensor_id == newest.sensor_id,
         R.measured_at <= newest.measured_at,
+        R.source == "ble",
         R.temperature == newest.temperature,
         R.humidity == newest.humidity,
         _valid_clause(),

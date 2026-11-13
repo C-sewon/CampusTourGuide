@@ -31,7 +31,7 @@ class ReadingOut(BaseModel):
     sensor_id: int
     measured_at: int
     temperature: float
-    humidity: float
+    humidity: float | None = Field(description="연구실 API 로 가져온 값에는 습도가 없어 null")
     age_minutes: int = Field(description="측정 후 경과 시간(분). 'n분 전 측정' 표시용")
     is_stale: bool = Field(description="age_minutes 가 기준(STALE_MINUTES) 이상이면 true")
     is_suspect: bool = Field(
@@ -41,7 +41,7 @@ class ReadingOut(BaseModel):
 
 class AverageOut(BaseModel):
     temperature: float
-    humidity: float
+    humidity: float | None = Field(description="습도 값이 있는 측정값이 없으면 null")
     count: int = Field(description="평균에 쓰인 측정값 개수")
     window_minutes: int = Field(description="평균을 낸 시간 범위(분)")
 
