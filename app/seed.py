@@ -20,8 +20,10 @@ SENSORS = [
 # [샘플] 센서 설치 위치를 기준으로 만든 임시 장소. 설명과 코스는 샘플이다.
 # 실제 장소 콘텐츠(솔못 등)는 장소 답사 후 교체한다.
 # 센서 연결은 (센서 번호, 장소에 설치된 센서인가) 목록이고, 앞에 있을수록 먼저 쓴다. (#2 합의)
+# 좌표는 맨 뒤에 (위도, 경도)를 적으면 그 값을 쓰고, 적지 않으면 설치된 센서 좌표의 평균을 쓴다.
+# 센서가 없는 실제 장소(솔못 등)는 가까운 센서를 찾으려면 좌표가 필요하다. (#22)
 SPOTS = [
-    # (이름, 영문, 설명, 센서 연결)
+    # (이름, 영문, 설명, 센서 연결) 또는 (이름, 영문, 설명, 센서 연결, (위도, 경도))
     ("도서관 뒤편", "Behind the Library", "[샘플] 진로창업본부 입구가 있는 곳.", [(1, True)]),
     ("사회과학대 입구", "Social Sciences Entrance", "[샘플] 사회과학대학 입구.", [(2, True)]),
     ("이마트24 건너편", "Across from E-Mart24", "[샘플] 사회과학대 옆 길 건너편.", [(3, True)]),
@@ -53,8 +55,13 @@ COURSES = [
 ]
 
 
-def _spot_coordinates(links) -> tuple[float | None, float | None]:
-    """센서가 설치된 장소의 좌표는 설치된 센서 좌표의 평균이다. 설치된 센서가 없으면 알 수 없다."""
+def _spot_coordinates(links, explicit=None) -> tuple[float | None, float | None]:
+    """장소의 좌표. 직접 적은 좌표가 있으면 그 값, 없으면 설치된 센서 좌표의 평균이다.
+
+    설치된 센서도 직접 적은 좌표도 없으면 알 수 없다.
+    """
+    if explicit is not None:
+        return explicit
     sensor_coords = {sid: (lat, lon) for sid, _, _, _, _, lat, lon in SENSORS}
     points = [sensor_coords[sid] for sid, on_site in links if on_site and sid in sensor_coords]
     if not points:
@@ -96,8 +103,8 @@ def seed_if_empty(sample_readings: bool = True) -> None:
         if db.scalars(select(models.Spot.id).limit(1)).first() is not None:
             return
         spots = []
-        for n, e, d, links in SPOTS:
-            lat, lon = _spot_coordinates(links)
+        for n, e, d, links, *rest in SPOTS:
+            lat, lon = _spot_coordinates(links, rest[0] if rest else None)
             spots.append(
                 models.Spot(
                     name=n,
