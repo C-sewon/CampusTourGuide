@@ -144,6 +144,31 @@ def _sensor_environment(
     return latest, average
 
 
+def _borrow_nearby_sensor(db: Session, spot: models.Spot, exclude_ids: set[int]):
+    """장소에서 MAX_BORROW_METERS 안에 있는 센서 중, 오래되지 않은 정상 값을 가진 가장 가까운 센서.
+
+    (센서, 최신 값, 평균)을 돌려주고, 장소 좌표를 모르거나 조건에 맞는 센서가 없으면 None 이다.
+    """
+    if spot.latitude is None or spot.longitude is None:
+        return None
+    near = []
+    for sensor in db.scalars(
+        select(models.Sensor).where(
+            models.Sensor.latitude.is_not(None), models.Sensor.longitude.is_not(None)
+        )
+    ):
+        if sensor.id in exclude_ids:
+            continue
+        distance = processing.distance_m(spot.latitude, spot.longitude, sensor.latitude, sensor.longitude)
+        if distance <= config.MAX_BORROW_METERS:
+            near.append((distance, sensor))
+    for _, sensor in sorted(near, key=lambda item: item[0]):
+        latest, average = _sensor_environment(db, sensor.id)
+        if latest is not None and not latest.is_stale:
+            return sensor, latest, average
+    return None
+
+
 def _spot_environment(
     db: Session, spot: models.Spot
 ) -> tuple[schemas.ReadingOut | None, schemas.AverageOut | None, schemas.ValueSourceOut | None]:
@@ -153,23 +178,36 @@ def _spot_environment(
     - 전부 오래됐다면 가장 최근 값을 낸 센서를 쓴다. (오래됨 표시가 붙은 채로)
     - 정상 값이 하나도 없으면 값 없음(None)이다.
     """
-    candidates = []
+    candidates = []  # (센서, 장소에 설치된 센서인가, 최신 값, 평균)
     for link in spot.sensor_links:
         latest, average = _sensor_environment(db, link.sensor_id)
         if latest is not None:
-            candidates.append((link, latest, average))
+            candidates.append((link.sensor, link.on_site, latest, average))
+
+    # 연결된 센서에서 오래되지 않은 값을 얻지 못하면, 가까운 센서의 값을 빌린다
+    if not any(not c[2].is_stale for c in candidates):
+        borrowed = _borrow_nearby_sensor(db, spot, {link.sensor_id for link in spot.sensor_links})
+        if borrowed is not None:
+            candidates.append((*borrowed[:1], False, *borrowed[1:]))
     if not candidates:
         return None, None, None
 
-    chosen = next((c for c in candidates if not c[1].is_stale), None)
+    chosen = next((c for c in candidates if not c[2].is_stale), None)
     if chosen is None:
-        chosen = max(candidates, key=lambda c: c[1].measured_at)
-    link, latest, average = chosen
+        chosen = max(candidates, key=lambda c: c[2].measured_at)
+    sensor, on_site, latest, average = chosen
+    distance = None
+    if None not in (spot.latitude, spot.longitude, sensor.latitude, sensor.longitude):
+        distance = round(
+            processing.distance_m(spot.latitude, spot.longitude, sensor.latitude, sensor.longitude)
+        )
     source = schemas.ValueSourceOut(
-        sensor_id=link.sensor_id,
-        ble_name=link.sensor.ble_name,
-        location=link.sensor.location,
-        is_on_site=link.on_site,
+        sensor_id=sensor.id,
+        ble_name=sensor.ble_name,
+        lab_name=sensor.lab_name,
+        location=sensor.location,
+        is_on_site=on_site,
+        distance_m=distance,
     )
     return latest, average, source
 
@@ -271,12 +309,16 @@ def post_reading(body: schemas.ReadingIn, response: Response, db: Session = Depe
 
 
 @app.get("/api/sensors", response_model=list[schemas.SensorOut])
-def list_sensors(db: Session = Depends(get_db)):
-    """등록된 센서 목록 (BLE 이름, MAC, 설치 위치)."""
-    sensors = db.scalars(select(models.Sensor).order_by(models.Sensor.id)).all()
+def list_sensors(kind: str | None = None, db: Session = Depends(get_db)):
+    """등록된 센서 목록. kind=opensrc 또는 kind=lab 으로 거를 수 있다."""
+    query = select(models.Sensor).order_by(models.Sensor.id)
+    if kind:
+        query = query.where(models.Sensor.kind == kind)
+    sensors = db.scalars(query).all()
     return [
         schemas.SensorOut(
             sensor_id=s.id,
+            kind=s.kind,
             ble_name=s.ble_name,
             mac=s.mac,
             location=s.location,
@@ -289,8 +331,11 @@ def list_sensors(db: Session = Depends(get_db)):
 
 
 @app.get("/api/sensors/status", response_model=list[schemas.SensorStatusOut])
-def sensors_status(db: Session = Depends(get_db)):
-    """센서별 상태. 등록된 센서, 장소에 연결된 센서, 측정값을 보낸 적 있는 센서를 모두 보여준다."""
+def sensors_status(kind: str | None = None, db: Session = Depends(get_db)):
+    """센서별 상태. 등록된 센서, 장소에 연결된 센서, 측정값을 보낸 적 있는 센서를 모두 보여준다.
+
+    kind=opensrc 또는 kind=lab 으로 거르면 등록된 해당 종류의 센서만 보여준다.
+    """
     registered = {s.id: s for s in db.scalars(select(models.Sensor)).all()}
     spot_names: dict[int, list[str]] = {}
     for s in db.scalars(select(models.Spot).order_by(models.Spot.id)):
@@ -300,8 +345,12 @@ def sensors_status(db: Session = Depends(get_db)):
                 names.append(s.name)
     reported = set(db.scalars(select(models.Reading.sensor_id).distinct()).all())
 
+    sensor_ids = sorted(set(registered) | set(spot_names) | reported)
+    if kind:
+        sensor_ids = [i for i in sensor_ids if i in registered and registered[i].kind == kind]
+
     result = []
-    for sensor_id in sorted(set(registered) | set(spot_names) | reported):
+    for sensor_id in sensor_ids:
         sensor = registered.get(sensor_id)
         latest, _ = _sensor_environment(db, sensor_id)
         last_received, received_count = db.execute(
@@ -312,6 +361,7 @@ def sensors_status(db: Session = Depends(get_db)):
         result.append(
             schemas.SensorStatusOut(
                 sensor_id=sensor_id,
+                kind=sensor.kind if sensor else None,
                 ble_name=sensor.ble_name if sensor else None,
                 mac=sensor.mac if sensor else None,
                 location=sensor.location if sensor else None,

@@ -18,6 +18,10 @@ STALE_MINUTES = _int("STALE_MINUTES", 30)
 FIXED_VALUE_MIN_COUNT = _int("FIXED_VALUE_MIN_COUNT", 5, minimum=2)
 FIXED_VALUE_MINUTES = _int("FIXED_VALUE_MINUTES", 10, minimum=0)
 
+# 장소에 쓸 만한 센서 값이 없을 때 가까운 센서 값을 빌려 쓰는 최대 거리(m).
+# 이보다 먼 센서는 그 장소의 온도라고 보기 어려워 쓰지 않는다.
+MAX_BORROW_METERS = _int("MAX_BORROW_METERS", 200)
+
 # 최근 평균을 계산하는 시간 범위(분)
 AVG_WINDOW_MINUTES = _int("AVG_WINDOW_MINUTES", 30)
 

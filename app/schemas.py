@@ -47,9 +47,10 @@ class AverageOut(BaseModel):
 
 
 class SensorOut(BaseModel):
-    sensor_id: int = Field(description="센서 번호. BLE 이름 opensrcN 의 N")
-    ble_name: str
-    mac: str
+    sensor_id: int = Field(description="센서 번호. opensrc 센서는 BLE 이름 opensrcN 의 N, 연구실 센서는 100 + 연구실 번호")
+    kind: str = Field(description="opensrc: 우리 팀 오픈소스 센서, lab: 연구실 센서")
+    ble_name: str | None = Field(description="연구실 센서는 null")
+    mac: str | None = Field(description="연구실 센서는 null")
     location: str = Field(description="설치 위치")
     lab_name: str | None = Field(description="연구실 공용 API 의 센서 이름 (예: sensor 07)")
     latitude: float | None
@@ -58,6 +59,7 @@ class SensorOut(BaseModel):
 
 class SensorStatusOut(BaseModel):
     sensor_id: int
+    kind: str | None = Field(description="opensrc 또는 lab. 등록되지 않은 센서면 null")
     ble_name: str | None = Field(description="등록된 센서의 BLE 이름. 등록되지 않은 센서면 null")
     mac: str | None
     location: str | None
@@ -94,10 +96,14 @@ class ArrivalOut(BaseModel):
 
 class ValueSourceOut(BaseModel):
     sensor_id: int
-    ble_name: str
+    ble_name: str | None = Field(description="연구실 센서는 null")
+    lab_name: str | None = Field(description="연구실 API 의 센서 이름 (예: sensor 18)")
     location: str = Field(description="값을 낸 센서의 설치 위치. 화면에 OO 센서 기준으로 표시할 때 쓴다")
     is_on_site: bool = Field(
         description="true 면 이 장소에 설치된 센서의 값, false 면 가까운 센서 값을 빌려 쓴 것"
+    )
+    distance_m: int | None = Field(
+        description="장소와 센서 사이의 거리(m). 장소나 센서의 좌표를 모르면 null. 약 56m 떨어진 센서 기준처럼 표시할 수 있다"
     )
 
 
@@ -136,7 +142,8 @@ class CourseOut(BaseModel):
 
 class LabSyncResultOut(BaseModel):
     fetched: int = Field(description="연구실 API 가 준 항목 수")
-    unknown_sensor: int = Field(description="등록되지 않은 센서라 건너뜀")
+    new_sensors: int = Field(description="새로 등록한 연구실 센서")
+    unknown_sensor: int = Field(description="센서 이름 형식이 다르거나 위치가 없어 건너뜀")
     not_fresh: int = Field(description="1시간 이내 갱신이 아니라 건너뜀")
     invalid: int = Field(description="시각이나 온도를 읽을 수 없어 건너뜀")
     duplicate: int = Field(description="이미 저장된 값")

@@ -53,6 +53,15 @@ COURSES = [
 ]
 
 
+def _spot_coordinates(links) -> tuple[float | None, float | None]:
+    """센서가 설치된 장소의 좌표는 설치된 센서 좌표의 평균이다. 설치된 센서가 없으면 알 수 없다."""
+    sensor_coords = {sid: (lat, lon) for sid, _, _, _, _, lat, lon in SENSORS}
+    points = [sensor_coords[sid] for sid, on_site in links if on_site and sid in sensor_coords]
+    if not points:
+        return None, None
+    return sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points)
+
+
 def _seed_sensors(db) -> None:
     """센서를 등록하고, 이미 있는 센서에 비어 있는 연구실 이름과 좌표를 채운다.
 
@@ -86,18 +95,22 @@ def seed_if_empty(sample_readings: bool = True) -> None:
         _seed_sensors(db)
         if db.scalars(select(models.Spot.id).limit(1)).first() is not None:
             return
-        spots = [
-            models.Spot(
-                name=n,
-                name_en=e,
-                description=d,
-                sensor_links=[
-                    models.SpotSensor(sensor_id=sid, priority=i, on_site=on_site)
-                    for i, (sid, on_site) in enumerate(links, start=1)
-                ],
+        spots = []
+        for n, e, d, links in SPOTS:
+            lat, lon = _spot_coordinates(links)
+            spots.append(
+                models.Spot(
+                    name=n,
+                    name_en=e,
+                    description=d,
+                    latitude=lat,
+                    longitude=lon,
+                    sensor_links=[
+                        models.SpotSensor(sensor_id=sid, priority=i, on_site=on_site)
+                        for i, (sid, on_site) in enumerate(links, start=1)
+                    ],
+                )
             )
-            for n, e, d, links in SPOTS
-        ]
         db.add_all(spots)
         db.flush()
 

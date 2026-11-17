@@ -1,4 +1,5 @@
 """측정값 전처리. DB에 의존하지 않는 순수 함수만 둔다."""
+import math
 from collections.abc import Sequence
 
 from .models import Reading
@@ -25,6 +26,17 @@ def is_valid_reading(temperature: float, humidity: float | None) -> bool:
     if not (HUMIDITY_RANGE[0] <= humidity <= HUMIDITY_RANGE[1]):
         return False
     return not (temperature == 0.0 and humidity == 0.0)
+
+
+def distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """두 지점 사이의 거리(m). 지구를 구로 보고 계산한다(하버사인). 캠퍼스 규모에서는 오차가 작다."""
+    earth_radius = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    a = (
+        math.sin((p2 - p1) / 2) ** 2
+        + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2
+    )
+    return 2 * earth_radius * math.asin(math.sqrt(a))
 
 
 def age_minutes(measured_at: int, now: int) -> int:
