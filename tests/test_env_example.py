@@ -35,5 +35,6 @@ def test_every_documented_setting_is_in_the_example():
     for key in (
         "LAB_SYNC_ENABLED", "LAB_SYNC_URL", "LAB_SYNC_SECONDS", "LAB_SYNC_TIMEOUT",
         "STALE_MINUTES", "FIXED_VALUE_MIN_COUNT", "FIXED_VALUE_MINUTES", "AVG_WINDOW_MINUTES",
+        "MAX_BORROW_METERS",
     ):
         assert key in values, f"{key} 가 .env.example 에 없다"

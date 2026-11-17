@@ -80,7 +80,8 @@ def test_most_recent_value_is_shown_as_stale_when_every_sensor_is_stale(client, 
     assert spot["latest_reading"]["temperature"] == 20.0
 
 
-def test_spot_without_value_has_no_source(client):
+def test_spot_without_value_has_no_source(client, monkeypatch):
+    monkeypatch.setattr(config, "MAX_BORROW_METERS", 1)  # 가까운 센서 빌리기를 끈다 (test_borrow_nearby_sensors.py)
     drop_readings(4)
     drop_readings(5)
     spot = client.get(f"/api/spots/{TENNIS}").json()

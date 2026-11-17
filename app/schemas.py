@@ -97,9 +97,13 @@ class ArrivalOut(BaseModel):
 class ValueSourceOut(BaseModel):
     sensor_id: int
     ble_name: str | None = Field(description="연구실 센서는 null")
+    lab_name: str | None = Field(description="연구실 API 의 센서 이름 (예: sensor 18)")
     location: str = Field(description="값을 낸 센서의 설치 위치. 화면에 OO 센서 기준으로 표시할 때 쓴다")
     is_on_site: bool = Field(
         description="true 면 이 장소에 설치된 센서의 값, false 면 가까운 센서 값을 빌려 쓴 것"
+    )
+    distance_m: int | None = Field(
+        description="장소와 센서 사이의 거리(m). 장소나 센서의 좌표를 모르면 null. 약 56m 떨어진 센서 기준처럼 표시할 수 있다"
     )
 
 

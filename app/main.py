@@ -144,6 +144,31 @@ def _sensor_environment(
     return latest, average
 
 
+def _borrow_nearby_sensor(db: Session, spot: models.Spot, exclude_ids: set[int]):
+    """장소에서 MAX_BORROW_METERS 안에 있는 센서 중, 오래되지 않은 정상 값을 가진 가장 가까운 센서.
+
+    (센서, 최신 값, 평균)을 돌려주고, 장소 좌표를 모르거나 조건에 맞는 센서가 없으면 None 이다.
+    """
+    if spot.latitude is None or spot.longitude is None:
+        return None
+    near = []
+    for sensor in db.scalars(
+        select(models.Sensor).where(
+            models.Sensor.latitude.is_not(None), models.Sensor.longitude.is_not(None)
+        )
+    ):
+        if sensor.id in exclude_ids:
+            continue
+        distance = processing.distance_m(spot.latitude, spot.longitude, sensor.latitude, sensor.longitude)
+        if distance <= config.MAX_BORROW_METERS:
+            near.append((distance, sensor))
+    for _, sensor in sorted(near, key=lambda item: item[0]):
+        latest, average = _sensor_environment(db, sensor.id)
+        if latest is not None and not latest.is_stale:
+            return sensor, latest, average
+    return None
+
+
 def _spot_environment(
     db: Session, spot: models.Spot
 ) -> tuple[schemas.ReadingOut | None, schemas.AverageOut | None, schemas.ValueSourceOut | None]:
@@ -153,23 +178,36 @@ def _spot_environment(
     - 전부 오래됐다면 가장 최근 값을 낸 센서를 쓴다. (오래됨 표시가 붙은 채로)
     - 정상 값이 하나도 없으면 값 없음(None)이다.
     """
-    candidates = []
+    candidates = []  # (센서, 장소에 설치된 센서인가, 최신 값, 평균)
     for link in spot.sensor_links:
         latest, average = _sensor_environment(db, link.sensor_id)
         if latest is not None:
-            candidates.append((link, latest, average))
+            candidates.append((link.sensor, link.on_site, latest, average))
+
+    # 연결된 센서에서 오래되지 않은 값을 얻지 못하면, 가까운 센서의 값을 빌린다
+    if not any(not c[2].is_stale for c in candidates):
+        borrowed = _borrow_nearby_sensor(db, spot, {link.sensor_id for link in spot.sensor_links})
+        if borrowed is not None:
+            candidates.append((*borrowed[:1], False, *borrowed[1:]))
     if not candidates:
         return None, None, None
 
-    chosen = next((c for c in candidates if not c[1].is_stale), None)
+    chosen = next((c for c in candidates if not c[2].is_stale), None)
     if chosen is None:
-        chosen = max(candidates, key=lambda c: c[1].measured_at)
-    link, latest, average = chosen
+        chosen = max(candidates, key=lambda c: c[2].measured_at)
+    sensor, on_site, latest, average = chosen
+    distance = None
+    if None not in (spot.latitude, spot.longitude, sensor.latitude, sensor.longitude):
+        distance = round(
+            processing.distance_m(spot.latitude, spot.longitude, sensor.latitude, sensor.longitude)
+        )
     source = schemas.ValueSourceOut(
-        sensor_id=link.sensor_id,
-        ble_name=link.sensor.ble_name,
-        location=link.sensor.location,
-        is_on_site=link.on_site,
+        sensor_id=sensor.id,
+        ble_name=sensor.ble_name,
+        lab_name=sensor.lab_name,
+        location=sensor.location,
+        is_on_site=on_site,
+        distance_m=distance,
     )
     return latest, average, source
 
