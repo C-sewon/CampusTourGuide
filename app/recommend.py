@@ -49,9 +49,9 @@ class ThresholdsOut(BaseModel):
 class RecommendationOut(BaseModel):
     condition: str = Field(description="cold(춥다) | comfortable(쾌적) | hot(덥다) | unknown(기온을 알 수 없음)")
     temperature: float | None = Field(
-        description="판단에 쓴 기온(℃). 코스에 포함된 모든 장소의 현재 기온 평균. 알 수 없으면 null"
+        description="판단에 쓴 기온(℃). 모든 코스의 장소를 합쳐 센서 기준으로 중복을 뺀 현재 기온 평균. 알 수 없으면 null"
     )
-    sample_count: int = Field(description="기온 평균에 쓴 장소 수")
+    sample_count: int = Field(description="기온 평균에 쓴 값의 수. 같은 센서 값은 한 번만 센다")
     thresholds: ThresholdsOut
     recommended_course_id: int | None = Field(description="추천 코스. 코스가 없으면 null")
     recommended_course_name: str | None
@@ -82,18 +82,47 @@ def _reason(condition: str, temperature: float | None, course: CourseInfo) -> st
     return f"기온을 알 수 없어 기본 코스(가장 긴 코스, {course.name})를 추천합니다."
 
 
+def _distinct_temperatures(
+    spot_ids: list[int] | set[int],
+    spot_temperatures: dict[int, float | None],
+    spot_sensors: dict[int, int | None],
+) -> list[float]:
+    """장소들의 기온을 모으되, 같은 센서 값은 한 번만 센다.
+
+    센서가 없는 장소가 가까운 센서 값을 빌려 쓰면, 여러 장소가 같은 센서 값을 갖게 된다.
+    그대로 평균을 내면 그 센서가 여러 번 들어가므로 센서 기준으로 중복을 뺀다.
+    센서를 알 수 없는 장소(spot_sensors 에 없음)는 장소마다 따로 센다.
+    """
+    seen_sensors: set[int] = set()
+    values: list[float] = []
+    for sid in sorted(spot_ids):  # 순서를 고정해 어느 장소가 먼저 세어지는지 항상 같게 한다
+        temperature = spot_temperatures.get(sid)
+        if temperature is None:
+            continue
+        sensor_id = spot_sensors.get(sid)
+        if sensor_id is not None:
+            if sensor_id in seen_sensors:
+                continue
+            seen_sensors.add(sensor_id)
+        values.append(temperature)
+    return values
+
+
 def build(
     courses: list[CourseInfo],
     spot_temperatures: dict[int, float | None],
     cold_max: int,
     hot_min: int,
+    spot_sensors: dict[int, int | None] | None = None,
 ) -> RecommendationOut:
     """코스 목록과 장소별 현재 기온으로 추천을 만든다.
 
     spot_temperatures: 장소 번호 -> 현재 기온(℃). 값이 없거나 오래됐으면 None.
+    spot_sensors: 장소 번호 -> 그 기온을 낸 센서 번호. 같은 센서 값은 평균에 한 번만 넣는다.
     """
+    sensors = spot_sensors or {}
     spot_ids = {sid for c in courses for sid in c.spot_ids}
-    known = [spot_temperatures[sid] for sid in spot_ids if spot_temperatures.get(sid) is not None]
+    known = _distinct_temperatures(spot_ids, spot_temperatures, sensors)
     temperature = _mean(known)
     condition = classify(temperature, cold_max, hot_min)
     chosen = choose(courses, condition)
@@ -111,9 +140,7 @@ def build(
                 id=c.id,
                 name=c.name,
                 total_minutes=c.total_minutes,
-                average_temperature=_mean(
-                    [spot_temperatures[sid] for sid in c.spot_ids if spot_temperatures.get(sid) is not None]
-                ),
+                average_temperature=_mean(_distinct_temperatures(c.spot_ids, spot_temperatures, sensors)),
                 recommended=chosen is not None and c.id == chosen.id,
             )
             for c in courses

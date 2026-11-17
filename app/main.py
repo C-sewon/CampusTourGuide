@@ -377,12 +377,15 @@ def recommend_course(db: Session = Depends(get_db)):
         .order_by(models.Course.id)
     ).all()
     temperatures: dict[int, float | None] = {}
+    sensors: dict[int, int | None] = {}  # 장소 -> 그 기온을 낸 센서 (같은 센서를 여러 번 세지 않으려고)
     for c in courses:
         for cs in c.stops:
             if cs.spot_id not in temperatures:
-                latest, _, _ = _spot_environment(db, cs.spot)
+                latest, _, source = _spot_environment(db, cs.spot)
                 # 오래된 값은 지금 기온이 아니므로 판단에 쓰지 않는다
-                temperatures[cs.spot_id] = latest.temperature if latest and not latest.is_stale else None
+                usable = latest is not None and not latest.is_stale
+                temperatures[cs.spot_id] = latest.temperature if usable else None
+                sensors[cs.spot_id] = source.sensor_id if usable and source else None
     infos = [
         recommend.CourseInfo(
             id=c.id,
@@ -392,4 +395,4 @@ def recommend_course(db: Session = Depends(get_db)):
         )
         for c in courses
     ]
-    return recommend.build(infos, temperatures, config.COLD_MAX_CELSIUS, config.HOT_MIN_CELSIUS)
+    return recommend.build(infos, temperatures, config.COLD_MAX_CELSIUS, config.HOT_MIN_CELSIUS, sensors)

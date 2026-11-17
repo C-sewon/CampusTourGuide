@@ -56,3 +56,18 @@ def test_stale_values_are_not_used_so_the_condition_is_unknown(client, monkeypat
     assert body["temperature"] is None and body["sample_count"] == 0
     assert body["recommended_course_id"] is not None  # 기온을 몰라도 기본 코스는 추천한다
     assert "알 수 없어" in body["reason"]
+
+
+def test_sensor_shared_by_two_spots_is_counted_once(client):
+    # 시드: 센서 2 를 쓰는 사회과학대 입구(장소 2)와 그 값을 빌리는 장소(센서 없는 장소)가 있다
+    spots = {s["id"]: s for s in client.get("/api/spots").json()}
+    by_sensor = {}
+    for s in spots.values():
+        if s["latest_reading"] and not s["latest_reading"]["is_stale"] and s["value_source"]:
+            by_sensor.setdefault(s["value_source"]["sensor_id"], []).append(s["id"])
+    assert any(len(ids) > 1 for ids in by_sensor.values()), "시드에 같은 센서를 쓰는 장소가 있어야 이 테스트가 의미 있음"
+
+    body = client.get("/api/courses/recommend").json()
+    in_courses = {cs["spot"]["id"] for c in client.get("/api/courses").json() for cs in c["spots"]}
+    distinct = {sid for sid, ids in by_sensor.items() if set(ids) & in_courses}
+    assert body["sample_count"] == len(distinct)

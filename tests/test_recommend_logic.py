@@ -98,3 +98,36 @@ def test_exactly_one_course_is_marked_recommended():
     result = build(COURSES, {sid: 20.0 for sid in range(1, 6)}, 5, 27)
     assert sum(c.recommended for c in result.courses) == 1
     assert recommend.COMFORTABLE == "comfortable"
+
+
+def test_same_sensor_is_counted_once_across_spots():
+    # 장소 3, 5 가 같은 센서 9 의 값을 빌려 써서 20.0 이 두 번 들어온 상황
+    temps = {1: 10.0, 2: 10.0, 3: 20.0, 4: 10.0, 5: 20.0}
+    sensors = {1: 1, 2: 2, 3: 9, 4: 4, 5: 9}
+    result = build(COURSES, temps, 5, 27, spot_sensors=sensors)
+    assert result.sample_count == 4
+    assert result.temperature == 12.5  # (10 + 10 + 20 + 10) / 4, 센서 9 는 한 번만
+
+
+def test_duplicate_sensors_are_removed_in_each_courses_average_too():
+    temps = {1: 10.0, 2: 10.0, 3: 20.0, 4: 10.0, 5: 20.0}
+    sensors = {1: 1, 2: 2, 3: 9, 4: 4, 5: 9}
+    result = build(COURSES, temps, 5, 27, spot_sensors=sensors)
+    by_id = {c.id: c.average_temperature for c in result.courses}
+    assert by_id[1] == 10.0  # 짧은 코스: 장소 1, 2, 4
+    assert by_id[2] == 12.5  # 기본 코스: 장소 1~5 중 센서 9 는 한 번
+
+
+def test_spots_without_a_known_sensor_are_counted_individually():
+    temps = {1: 10.0, 2: 20.0}
+    result = build([CourseInfo(id=1, name="가", total_minutes=10, spot_ids=[1, 2])], temps, 5, 27)
+    assert result.sample_count == 2 and result.temperature == 15.0
+
+
+def test_dedup_does_not_depend_on_the_order_of_spot_ids():
+    # 같은 센서를 쓰는 두 장소의 값이 다르면 번호가 작은 장소 값을 쓴다 (항상 같은 결과)
+    temps = {1: 12.0, 2: 14.0}
+    sensors = {1: 7, 2: 7}
+    a = build([CourseInfo(id=1, name="가", total_minutes=10, spot_ids=[1, 2])], temps, 5, 27, sensors)
+    b = build([CourseInfo(id=1, name="가", total_minutes=10, spot_ids=[2, 1])], temps, 5, 27, sensors)
+    assert a.temperature == b.temperature == 12.0
