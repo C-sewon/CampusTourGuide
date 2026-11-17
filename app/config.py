@@ -35,3 +35,7 @@ LAB_SYNC_ENABLED = _flag("LAB_SYNC_ENABLED", True)
 LAB_SYNC_URL = os.getenv("LAB_SYNC_URL", "http://203.255.81.72:10021/sensor/api/map")
 LAB_SYNC_SECONDS = _int("LAB_SYNC_SECONDS", 60, minimum=10)  # 가져오는 간격(초)
 LAB_SYNC_TIMEOUT = _int("LAB_SYNC_TIMEOUT", 10)  # 요청 제한 시간(초)
+
+# 환경 맞춤 코스 추천: 이 기온(℃) 이하면 춥다, 이 기온 이상이면 덥다
+COLD_MAX_CELSIUS = _int("COLD_MAX_CELSIUS", 5, minimum=-50)
+HOT_MIN_CELSIUS = _int("HOT_MIN_CELSIUS", 27, minimum=-50)
