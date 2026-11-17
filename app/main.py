@@ -7,7 +7,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import config, lab_sync, models, processing, schemas
+from . import config, lab_sync, models, processing, recommend, schemas
 from .database import Base, engine, ensure_current_schema, get_db
 from .seed import seed_if_empty
 
@@ -416,3 +416,33 @@ def list_courses(db: Session = Depends(get_db)):
         )
         for c in courses
     ]
+
+
+@app.get("/api/courses/recommend", response_model=recommend.RecommendationOut)
+def recommend_course(db: Session = Depends(get_db)):
+    """현재 기온에 맞는 코스를 추천한다. 춥거나 더우면 가장 짧은 코스, 쾌적하면 가장 긴 코스."""
+    courses = db.scalars(
+        select(models.Course)
+        .options(selectinload(models.Course.stops).selectinload(models.CourseSpot.spot))
+        .order_by(models.Course.id)
+    ).all()
+    temperatures: dict[int, float | None] = {}
+    sensors: dict[int, int | None] = {}  # 장소 -> 그 기온을 낸 센서 (같은 센서를 여러 번 세지 않으려고)
+    for c in courses:
+        for cs in c.stops:
+            if cs.spot_id not in temperatures:
+                latest, _, source = _spot_environment(db, cs.spot)
+                # 오래된 값은 지금 기온이 아니므로 판단에 쓰지 않는다
+                usable = latest is not None and not latest.is_stale
+                temperatures[cs.spot_id] = latest.temperature if usable else None
+                sensors[cs.spot_id] = source.sensor_id if usable and source else None
+    infos = [
+        recommend.CourseInfo(
+            id=c.id,
+            name=c.name,
+            total_minutes=sum(cs.minutes for cs in c.stops),
+            spot_ids=[cs.spot_id for cs in c.stops],
+        )
+        for c in courses
+    ]
+    return recommend.build(infos, temperatures, config.COLD_MAX_CELSIUS, config.HOT_MIN_CELSIUS, sensors)

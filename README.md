@@ -150,6 +150,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --env-file .env
 | GET | `/api/sensors` | 등록된 센서 목록 (종류, 번호, BLE 이름, MAC, 설치 위치, 좌표). `?kind=opensrc` 또는 `?kind=lab` |
 | GET | `/api/sensors/status` | 센서별 상태. 통합 테스트와 시연 전 점검용. `?kind=opensrc` 또는 `?kind=lab` |
 | GET | `/api/lab-sync/status` | 연구실 센서 데이터를 가져오는 작업의 마지막 결과 |
+| GET | `/api/courses/recommend` | 현재 기온에 맞는 코스 추천 |
 | GET | `/health` | 헬스체크 |
 
 ### POST /api/readings 본문
@@ -284,6 +285,34 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --env-file .env
 - `last_received_at`은 서버가 값을 받은 시각입니다. `latest_reading.measured_at`과 크게 다르면 Pi 시계가 틀렸을 가능성이 있습니다.
 - 연구실 API 값은 센서가 직접 올리는 것이라 계속 갱신되지만, 앱이 BLE로 올리는 값(습도 포함)은 폰이 근처를 지나갈 때만 들어옵니다.
 
+### GET /api/courses/recommend
+
+지금 기온에 맞는 코스를 골라 줍니다. 앱은 이 응답의 `recommended_course_id`와 `reason`을 그대로 보여주면 됩니다.
+
+- **모든 코스의 장소를 합쳐서**(한 장소는 한 번만) **현재 기온 평균**으로 판단합니다. 오래된 값(`is_stale`)은 쓰지 않습니다.
+- 센서가 없는 장소가 가까운 센서 값을 빌려 쓰면 여러 장소가 같은 센서 값을 갖게 되므로, **같은 센서의 값은 평균에 한 번만** 넣습니다. (`sample_count`는 이렇게 센 값의 수입니다.)
+- `courses`의 `average_temperature`는 그 코스의 장소만으로 같은 방식으로 구한 평균입니다.
+- `COLD_MAX_CELSIUS`(기본 5℃) 이하면 `cold`, `HOT_MIN_CELSIUS`(기본 27℃) 이상이면 `hot` → **가장 짧은 코스**
+- 그 사이면 `comfortable` → **가장 긴 코스**
+- 기온을 아는 장소가 없으면 `unknown` → 기본 코스(가장 긴 코스)
+- 길이가 같으면 번호가 작은 코스입니다.
+
+```json
+{
+  "condition": "cold",
+  "temperature": 3.5,
+  "sample_count": 4,
+  "thresholds": {"cold_max": 5, "hot_min": 27},
+  "recommended_course_id": 1,
+  "recommended_course_name": "짧은 코스",
+  "reason": "기온 3.5도로 추워서 가장 짧은 코스(짧은 코스)를 추천합니다.",
+  "courses": [
+    {"id": 1, "name": "짧은 코스", "total_minutes": 25, "average_temperature": 3.5, "recommended": true},
+    {"id": 2, "name": "기본 코스", "total_minutes": 45, "average_temperature": 3.5, "recommended": false}
+  ]
+}
+```
+
 ### 설정 (환경변수)
 
 | 이름 | 기본값 | 설명 |
@@ -298,6 +327,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --env-file .env
 | `LAB_SYNC_URL` | `http://203.255.81.72:10021/sensor/api/map` | 연구실 센서 최신 데이터 API |
 | `LAB_SYNC_SECONDS` | 60 | 가져오는 간격(초, 최소 10) |
 | `LAB_SYNC_TIMEOUT` | 10 | 요청 제한 시간(초) |
+| `COLD_MAX_CELSIUS` | 5 | 코스 추천에서 이 기온(℃) 이하면 춥다고 봄 |
+| `HOT_MIN_CELSIUS` | 27 | 코스 추천에서 이 기온(℃) 이상이면 덥다고 봄 |
 
 ## 일정
 
