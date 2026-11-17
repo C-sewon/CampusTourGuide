@@ -109,6 +109,17 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    // 재전송 큐: 업로드에 실패한 값을 모아 두었다가 다시 보냄
+    private UploadQueue uploadQueue;
+    private static final long UPLOAD_FLUSH_MS = 5000;
+    private final Runnable uploadFlushTick = new Runnable() {
+        @Override
+        public void run() {
+            if (uploadQueue != null) uploadQueue.flush();
+            tickHandler.postDelayed(this, UPLOAD_FLUSH_MS);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedBundleInstance) {
         super.onCreate(savedBundleInstance);
@@ -122,6 +133,31 @@ public class MainActivity extends AppCompatActivity {
                 .addConverterFactory(ScalarsConverterFactory.create())
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build();
+
+        uploadQueue = new UploadQueue(
+                this::sendToLabServer,
+                new UploadQueue.FileStore(new File(getFilesDir(), "upload_queue.json")),
+                System::currentTimeMillis,
+                new UploadQueue.Listener() {
+                    @Override
+                    public void onSent(SensorRequest r, String detail) {
+                        tvLog.append("\n[서버 응답: 정상] " + r.getSensor() + " RSSI " + r.getRssi() + " - " + detail);
+                    }
+
+                    @Override
+                    public void onDropped(SensorRequest r, String reason) {
+                        tvLog.append("\n[전송 포기] " + r.getSensor() + " - " + reason);
+                    }
+
+                    @Override
+                    public void onRetryScheduled(int queued, long delayMs, String detail) {
+                        tvLog.append("\n[재전송 대기] " + queued + "건, " + (delayMs / 1000) + "초 뒤 다시 시도 - " + detail);
+                    }
+                });
+        if (uploadQueue.size() > 0) {
+            tvLog.append("\n[재전송 대기] 지난번에 못 보낸 값 " + uploadQueue.size() + "건");
+        }
+        tickHandler.postDelayed(uploadFlushTick, UPLOAD_FLUSH_MS);
 
         // 권한 체크 및 초기화
         bleInitialize(this);
@@ -167,6 +203,7 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         stopLocationUpdates();
         tickHandler.removeCallbacks(arrivalTick);
+        tickHandler.removeCallbacks(uploadFlushTick);
     }
 
     private void startLocationUpdates() {
@@ -428,8 +465,6 @@ public class MainActivity extends AppCompatActivity {
 
         String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
 
-        ApiService apiService = retrofit.create(ApiService.class);
-
         SensorRequest request = new SensorRequest(
                 TEAM_KEY,           // key
                 deviceName,         // sensor - 센서 이름 (opensrc1~opensrc5)
@@ -446,20 +481,28 @@ public class MainActivity extends AppCompatActivity {
                 rssi
         );
 
-        tvLog.append("\n\n[전송 시작] " + deviceName + " (RSSI " + rssi + ")");
+        // 바로 보내지 않고 재전송 큐에 넣는다. 네트워크가 정상이면 큐가 바로 보낸다.
+        // 같은 센서의 같은 측정 시각은 이미 보냈으므로 다시 넣지 않는다.
+        if (uploadQueue.add(request)) {
+            tvLog.append("\n\n[전송 시작] " + deviceName + " (RSSI " + rssi + ")");
+        } else {
+            tvLog.append("\n[중복 생략] " + deviceName + " 측정 시각 " + packet.timestamp + "은 이미 보냄");
+        }
+    }
 
+    /** 재전송 큐가 실제로 연구실(수업) 서버에 보낼 때 쓰는 함수 */
+    private void sendToLabServer(SensorRequest request, UploadQueue.Done done) {
+        ApiService apiService = retrofit.create(ApiService.class);
         apiService.sendSensorData(request).enqueue(new Callback<SensorResponse>() {
             @Override
             public void onResponse(Call<SensorResponse> call, Response<SensorResponse> response) {
+                UploadQueue.Result result = UploadQueue.classify(response.code());
+                String detail;
                 if (response.isSuccessful() && response.body() != null) {
-                    String status = response.body().getStatus();
-                    if ("ok".equals(status)) {
-                        tvLog.append("\n[서버 응답: 정상] " + deviceName + " RSSI " + rssi + " - " + response.body().getResult() + " - " + response.body().getMessage());
-                    } else if ("out_of_range".equals(status)) {
-                        tvLog.append("\n[서버 응답: 범위 초과] " + deviceName + " RSSI " + rssi + " - " + response.body().getResult() + " - " + response.body().getMessage());
-                    } else {
-                        tvLog.append("\n[서버 응답] " + deviceName + " RSSI " + rssi + " - " + response.body().getResult() + " - " + response.body().getMessage());
-                    }
+                    SensorResponse body = response.body();
+                    String status = body.getStatus();
+                    String label = "out_of_range".equals(status) ? "범위 초과" : String.valueOf(status);
+                    detail = label + " - " + body.getResult() + " - " + body.getMessage();
                 } else {
                     String errorDetail;
                     try {
@@ -467,13 +510,15 @@ public class MainActivity extends AppCompatActivity {
                     } catch (IOException e) {
                         errorDetail = "(에러 본문 읽기 실패: " + e.getMessage() + ")";
                     }
-                    tvLog.append("\n[서버 응답 오류] " + deviceName + " RSSI " + rssi + " - HTTP " + response.code() + " - " + errorDetail);
+                    detail = "HTTP " + response.code() + " - " + errorDetail;
                 }
+                done.onResult(result, detail);
             }
 
             @Override
             public void onFailure(Call<SensorResponse> call, Throwable t) {
-                tvLog.append("\n[전송 실패] " + deviceName + " RSSI " + rssi + " - " + t.getMessage());
+                // 응답을 못 받음 (네트워크 끊김, 시간 초과 등) → 나중에 다시 보냄
+                done.onResult(UploadQueue.Result.RETRY, "전송 실패: " + t.getMessage());
             }
         });
     }

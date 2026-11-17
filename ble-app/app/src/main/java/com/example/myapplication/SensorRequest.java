@@ -37,4 +37,9 @@ public class SensorRequest {
         this.sender = sender;
         this.rssi = rssi;
     }
+
+    // 재전송 큐 로그용
+    public String getSensor() { return sensor; }
+    public long getTimestamp() { return timestamp; }
+    public int getRssi() { return rssi; }
 }
