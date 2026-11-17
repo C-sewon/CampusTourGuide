@@ -75,21 +75,47 @@ class ReadingResult(BaseModel):
     status: str  # "created" | "duplicate"
 
 
-class SpotOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class SpotSensorOut(BaseModel):
+    sensor_id: int
+    ble_name: str
+    mac: str
+    location: str
 
+
+class ArrivalOut(BaseModel):
+    method: str = Field(
+        description="ble_auto: 장소에 설치된 센서가 있어 BLE 로 도착을 자동 판정(수동 버튼은 보조). "
+        "manual: 센서가 없어 방문객이 도착 버튼으로 체크"
+    )
+    sensors: list[SpotSensorOut] = Field(
+        description="도착 판정에 쓰는, 이 장소에 설치된 센서. 앱이 스캔한 센서를 이 목록과 비교한다. manual 이면 빈 목록"
+    )
+
+
+class ValueSourceOut(BaseModel):
+    sensor_id: int
+    ble_name: str
+    location: str = Field(description="값을 낸 센서의 설치 위치. 화면에 OO 센서 기준으로 표시할 때 쓴다")
+    is_on_site: bool = Field(
+        description="true 면 이 장소에 설치된 센서의 값, false 면 가까운 센서 값을 빌려 쓴 것"
+    )
+
+
+class SpotOut(BaseModel):
     id: int
     name: str
     name_en: str | None
     description: str
     description_en: str | None
-    sensor_id: int | None
-    ble_name: str | None
     latitude: float | None
     longitude: float | None
+    arrival: ArrivalOut
     latest_reading: ReadingOut | None
     recent_average: AverageOut | None = Field(
         description="최근 평균. 측정값이 없거나 is_suspect 이면 null"
+    )
+    value_source: ValueSourceOut | None = Field(
+        description="latest_reading 이 어느 센서에서 왔는지. 측정값이 없으면 null"
     )
 
 

@@ -38,6 +38,10 @@ def ensure_current_schema(bind=None) -> None:
         columns = {c["name"] for c in inspector.get_columns("readings")}
         if "seq" in columns or not {"rssi", "source"} <= columns:
             problems.append("readings")
+    if inspector.has_table("spots"):
+        columns = {c["name"] for c in inspector.get_columns("spots")}
+        if "sensor_id" in columns:  # 장소가 센서를 하나만 쓰던 예전 구조
+            problems.append("spots")
     if inspector.has_table("sensors"):
         columns = {c["name"] for c in inspector.get_columns("sensors")}
         if "lab_name" not in columns:

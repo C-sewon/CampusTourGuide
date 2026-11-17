@@ -1,4 +1,4 @@
-from sqlalchemy import Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -19,7 +19,7 @@ class Sensor(Base):
 
 
 class Spot(Base):
-    """캠퍼스 장소. sensor_id 로 해당 장소의 Pi 와 연결된다."""
+    """캠퍼스 장소. 장소 하나는 센서를 여러 개 쓸 수 있고(SpotSensor), 센서 하나를 여러 장소가 쓸 수도 있다."""
 
     __tablename__ = "spots"
 
@@ -28,10 +28,31 @@ class Spot(Base):
     name_en: Mapped[str | None] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text, default="")
     description_en: Mapped[str | None] = mapped_column(Text)
-    sensor_id: Mapped[int | None] = mapped_column(Integer, unique=True)  # BLE 센서ID (1바이트)
-    ble_name: Mapped[str | None] = mapped_column(String(50))  # Pi 광고 이름 (확정되면 채움)
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)
+
+    sensor_links: Mapped[list["SpotSensor"]] = relationship(
+        order_by="SpotSensor.priority", cascade="all, delete-orphan"
+    )
+
+
+class SpotSensor(Base):
+    """장소가 온도를 가져올 센서. priority 가 작을수록 먼저 쓴다.
+
+    on_site 가 True 면 그 장소에 설치된 센서이고(BLE 로 도착을 자동 판정할 수 있다),
+    False 면 센서가 없는 장소가 가까운 센서 값을 빌려 쓰는 것이다.
+    """
+
+    __tablename__ = "spot_sensors"
+    __table_args__ = (UniqueConstraint("spot_id", "sensor_id", name="uq_spot_sensor"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    spot_id: Mapped[int] = mapped_column(ForeignKey("spots.id"))
+    sensor_id: Mapped[int] = mapped_column(ForeignKey("sensors.id"))
+    priority: Mapped[int] = mapped_column(Integer, default=1)
+    on_site: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    sensor: Mapped[Sensor] = relationship()
 
 
 class Reading(Base):

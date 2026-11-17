@@ -19,13 +19,26 @@ SENSORS = [
 
 # [샘플] 센서 설치 위치를 기준으로 만든 임시 장소. 설명과 코스는 샘플이다.
 # 실제 장소 콘텐츠(솔못 등)는 장소 답사 후 교체한다.
+# 센서 연결은 (센서 번호, 장소에 설치된 센서인가) 목록이고, 앞에 있을수록 먼저 쓴다. (#2 합의)
 SPOTS = [
-    # (이름, 영문, 설명, sensor_id)
-    ("도서관 뒤편", "Behind the Library", "[샘플] 진로창업본부 입구가 있는 곳.", 1),
-    ("사회과학대 입구", "Social Sciences Entrance", "[샘플] 사회과학대학 입구.", 2),
-    ("이마트24 건너편", "Across from E-Mart24", "[샘플] 사회과학대 옆 길 건너편.", 3),
-    ("테니스장 앞", "In Front of the Tennis Courts", "[샘플] 테니스장 앞 길.", 4),
-    ("테니스장 건너편", "Across from the Tennis Courts", "[샘플] 테니스장 길 건너편.", 5),
+    # (이름, 영문, 설명, 센서 연결)
+    ("도서관 뒤편", "Behind the Library", "[샘플] 진로창업본부 입구가 있는 곳.", [(1, True)]),
+    ("사회과학대 입구", "Social Sciences Entrance", "[샘플] 사회과학대학 입구.", [(2, True)]),
+    ("이마트24 건너편", "Across from E-Mart24", "[샘플] 사회과학대 옆 길 건너편.", [(3, True)]),
+    # 센서 4(앞), 5(건너편)는 길 하나를 사이에 두고 있어 한 장소로 묶는다. 앞 센서 값이 없으면 다음 센서 값을 쓴다
+    (
+        "테니스장",
+        "Tennis Courts",
+        "[샘플] 테니스장 앞과 건너편 길.",
+        [(4, True), (5, True)],
+    ),
+    # 센서가 없는 장소는 가까운 센서 값을 빌려 쓰고, 도착은 도착 버튼으로 체크한다 (솔못 같은 장소 자리)
+    (
+        "[샘플] 센서 없는 장소",
+        "[Sample] Spot Without Sensor",
+        "[샘플] 센서가 없어 가까운 센서 값을 빌려 쓰는 장소.",
+        [(2, False)],
+    ),
 ]
 
 # [샘플] 코스: (이름, 영문, 설명, [(spot 순번 1~5, 분)])
@@ -74,7 +87,16 @@ def seed_if_empty(sample_readings: bool = True) -> None:
         if db.scalars(select(models.Spot.id).limit(1)).first() is not None:
             return
         spots = [
-            models.Spot(name=n, name_en=e, description=d, sensor_id=sid) for n, e, d, sid in SPOTS
+            models.Spot(
+                name=n,
+                name_en=e,
+                description=d,
+                sensor_links=[
+                    models.SpotSensor(sensor_id=sid, priority=i, on_site=on_site)
+                    for i, (sid, on_site) in enumerate(links, start=1)
+                ],
+            )
+            for n, e, d, links in SPOTS
         ]
         db.add_all(spots)
         db.flush()
