@@ -1,21 +1,32 @@
+import asyncio
 import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Response
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import config, models, processing, schemas
-from .database import Base, engine, get_db
+from . import config, lab_sync, models, processing, schemas
+from .database import Base, engine, ensure_current_schema, get_db
 from .seed import seed_if_empty
+
+
+async def _lab_sync_loop():
+    while True:
+        await asyncio.to_thread(lab_sync.run_once)
+        await asyncio.sleep(config.LAB_SYNC_SECONDS)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_current_schema()
     Base.metadata.create_all(engine)
-    seed_if_empty()
+    seed_if_empty(sample_readings=not config.LAB_SYNC_ENABLED)
+    task = asyncio.create_task(_lab_sync_loop()) if config.LAB_SYNC_ENABLED else None
     yield
+    if task is not None:
+        task.cancel()
 
 
 app = FastAPI(title="Campus BLE Tour Guide API", lifespan=lifespan)
@@ -25,7 +36,6 @@ def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingO
     age = processing.age_minutes(r.measured_at, now)
     return schemas.ReadingOut(
         sensor_id=r.sensor_id,
-        seq=r.seq,
         measured_at=r.measured_at,
         temperature=r.temperature,
         humidity=r.humidity,
@@ -36,9 +46,16 @@ def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingO
 
 
 def _valid_clause():
-    """온도와 습도가 모두 0.0인 측정값(센서 오류값)을 뺀 조건. processing.is_valid_reading 과 같은 기준."""
+    """오류값을 뺀 조건. processing.is_valid_reading 과 같은 기준.
+
+    습도가 없는 값(NULL)은 온도 범위만 본다. SQL 에서 NULL 비교는 거짓이 되므로 NULL 을 따로 다룬다.
+    """
     R = models.Reading
-    return or_(R.temperature != 0, R.humidity != 0)
+    return and_(
+        R.temperature.between(*processing.TEMPERATURE_RANGE),
+        or_(R.humidity.is_(None), R.humidity.between(*processing.HUMIDITY_RANGE)),
+        or_(R.temperature != 0, R.humidity.is_(None), R.humidity != 0),
+    )
 
 
 def _is_fixed(db: Session, newest: models.Reading) -> bool:
@@ -46,12 +63,18 @@ def _is_fixed(db: Session, newest: models.Reading) -> bool:
 
     같은 값이 시작된 시점은 '마지막으로 다른 값이 측정된 시각' 이후로 본다.
     센서 오류값(0.0)은 구간 계산에서 제외한다.
+
+    BLE 로 받은 값(소수점 둘째 자리까지)에만 적용한다. 연구실 API 값은 소수점이 버려진 정수 온도라서
+    몇 분 동안 같은 값이 나오는 것이 정상이므로 고정값으로 보지 않는다.
     """
     R = models.Reading
+    if newest.source != "ble" or newest.humidity is None:
+        return False
     last_different = db.scalar(
         select(func.max(R.measured_at)).where(
             R.sensor_id == newest.sensor_id,
             R.measured_at <= newest.measured_at,
+            R.source == "ble",
             or_(R.temperature != newest.temperature, R.humidity != newest.humidity),
             _valid_clause(),
         )
@@ -59,6 +82,7 @@ def _is_fixed(db: Session, newest: models.Reading) -> bool:
     in_run = [
         R.sensor_id == newest.sensor_id,
         R.measured_at <= newest.measured_at,
+        R.source == "ble",
         R.temperature == newest.temperature,
         R.humidity == newest.humidity,
         _valid_clause(),
@@ -89,7 +113,7 @@ def _sensor_environment(
     newest = db.scalars(
         select(models.Reading)
         .where(models.Reading.sensor_id == sensor_id, _valid_clause())
-        .order_by(models.Reading.measured_at.desc(), models.Reading.seq.desc())
+        .order_by(models.Reading.measured_at.desc(), models.Reading.id.desc())
         .limit(1)
     ).first()
     if newest is None:
@@ -142,19 +166,62 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/api/readings", response_model=schemas.ReadingResult, status_code=201)
+@app.get("/api/lab-sync/status", response_model=schemas.LabSyncStatusOut)
+def lab_sync_status():
+    """연구실 센서 데이터를 가져오는 작업의 마지막 결과. 연동이 잘 되는지 점검하는 용도."""
+    return schemas.LabSyncStatusOut(
+        enabled=config.LAB_SYNC_ENABLED,
+        interval_seconds=config.LAB_SYNC_SECONDS,
+        url=config.LAB_SYNC_URL,
+        **lab_sync.state,
+    )
+
+
+def _find_sensor(db: Session, mac: str | None, ble_name: str) -> models.Sensor | None:
+    """업로드된 센서를 찾는다. MAC 이 있으면 MAC 으로만 찾고, 없으면(iOS) BLE 이름으로 찾는다.
+
+    MAC 이 있는데 등록된 MAC 과 다르면, 이름이 같아도 다른 기기(다른 팀 센서 등)일 수 있어 찾지 않는다.
+    """
+    if mac:
+        return db.scalars(select(models.Sensor).where(models.Sensor.mac == mac)).first()
+    return db.scalars(select(models.Sensor).where(models.Sensor.ble_name == ble_name)).first()
+
+
+@app.post(
+    "/api/readings",
+    response_model=schemas.ReadingResult,
+    status_code=201,
+    responses={404: {"description": "등록되지 않은 센서. 재시도하지 않아도 된다"}},
+)
 def post_reading(body: schemas.ReadingIn, response: Response, db: Session = Depends(get_db)):
-    """측정값 업로드. 같은 (sensor_id, seq)가 다시 오면 200 + duplicate (앱 재전송 대응)."""
+    """측정값 업로드. 같은 센서의 같은 measured_at 이 다시 오면 200 + duplicate (앱 재전송 대응)."""
+    sensor = _find_sensor(db, body.mac, body.ble_name)
+    if sensor is None:
+        raise HTTPException(404, "등록되지 않은 센서입니다")
+
     exists = db.scalars(
         select(models.Reading.id).where(
-            models.Reading.sensor_id == body.sensor_id, models.Reading.seq == body.seq
+            models.Reading.sensor_id == sensor.id,
+            models.Reading.measured_at == body.measured_at,
         )
     ).first()
     if exists is not None:
         response.status_code = 200
         return schemas.ReadingResult(status="duplicate")
 
-    db.add(models.Reading(**body.model_dump(), received_at=int(time.time())))
+    db.add(
+        models.Reading(
+            sensor_id=sensor.id,
+            measured_at=body.measured_at,
+            temperature=body.temperature,
+            humidity=body.humidity,
+            aqi=body.aqi,
+            tvoc=body.tvoc,
+            eco2=body.eco2,
+            rssi=body.rssi,
+            received_at=int(time.time()),
+        )
+    )
     try:
         db.commit()
     except IntegrityError:  # 동시 요청으로 같은 키가 먼저 들어간 경우
@@ -174,6 +241,7 @@ def list_sensors(db: Session = Depends(get_db)):
             ble_name=s.ble_name,
             mac=s.mac,
             location=s.location,
+            lab_name=s.lab_name,
             latitude=s.latitude,
             longitude=s.longitude,
         )

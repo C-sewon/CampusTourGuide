@@ -13,6 +13,7 @@ class Sensor(Base):
     ble_name: Mapped[str] = mapped_column(String(50), unique=True)
     mac: Mapped[str] = mapped_column(String(17), unique=True)  # 대문자, 콜론 구분
     location: Mapped[str] = mapped_column(String(100))  # 설치 위치
+    lab_name: Mapped[str | None] = mapped_column(String(20), unique=True)  # 연구실 API 의 센서 이름 (예: sensor 07)
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)
 
@@ -34,18 +35,25 @@ class Spot(Base):
 
 
 class Reading(Base):
-    """Pi 측정값. (sensor_id, seq) 로 중복 제거."""
+    """Pi 측정값. 같은 센서의 같은 측정 시각(sensor_id, measured_at)은 한 번만 저장한다."""
 
     __tablename__ = "readings"
-    __table_args__ = (UniqueConstraint("sensor_id", "seq", name="uq_reading_sensor_seq"),)
+    __table_args__ = (
+        UniqueConstraint("sensor_id", "measured_at", name="uq_reading_sensor_measured_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    sensor_id: Mapped[int] = mapped_column(Integer, index=True)
-    seq: Mapped[int] = mapped_column(Integer)
-    measured_at: Mapped[int] = mapped_column(Integer, index=True)  # Unix 초
+    sensor_id: Mapped[int] = mapped_column(Integer, index=True)  # sensors.id
+    measured_at: Mapped[int] = mapped_column(Integer, index=True)  # Unix 초 (Pi 시계)
     temperature: Mapped[float] = mapped_column(Float)  # ℃
-    humidity: Mapped[float] = mapped_column(Float)  # %
+    humidity: Mapped[float | None] = mapped_column(Float)  # %. 연구실 API 로 가져온 값에는 없음
+    aqi: Mapped[int | None] = mapped_column(Integer)  # 공기질 지수 (화면에는 쓰지 않고 저장만)
+    tvoc: Mapped[int | None] = mapped_column(Integer)  # ppb
+    eco2: Mapped[int | None] = mapped_column(Integer)  # ppm
+    rssi: Mapped[int | None] = mapped_column(Integer)  # 폰이 받은 신호 세기 (dBm)
     received_at: Mapped[int] = mapped_column(Integer)  # 서버 수신 시각 (Unix 초)
+    # 값의 출처. ble: 앱이 BLE 로 읽어 올린 값, lab: 연구실 공용 API 에서 가져온 값(온도만, 정수)
+    source: Mapped[str] = mapped_column(String(10), default="ble", server_default="ble")
 
 
 class Course(Base):

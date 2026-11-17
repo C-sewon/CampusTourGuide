@@ -22,3 +22,28 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def ensure_current_schema(bind=None) -> None:
+    """예전 구조의 표가 남아 있으면 알아보기 쉬운 오류로 멈춘다.
+
+    create_all 은 이미 있는 표의 칸을 바꾸지 못해서, 구조가 바뀐 뒤 예전 DB를 그대로 쓰면
+    저장할 때 SQL 오류가 난다. 개발용 SQLite 파일은 지우고 다시 만들면 된다.
+    """
+    from sqlalchemy import inspect
+
+    inspector = inspect(bind or engine)
+    problems = []
+    if inspector.has_table("readings"):
+        columns = {c["name"] for c in inspector.get_columns("readings")}
+        if "seq" in columns or not {"rssi", "source"} <= columns:
+            problems.append("readings")
+    if inspector.has_table("sensors"):
+        columns = {c["name"] for c in inspector.get_columns("sensors")}
+        if "lab_name" not in columns:
+            problems.append("sensors")
+    if problems:
+        raise RuntimeError(
+            f"DB의 {', '.join(problems)} 표가 예전 구조입니다. "
+            "개발용 SQLite 파일(campus_tour.db)을 지우고 서버를 다시 실행하세요."
+        )

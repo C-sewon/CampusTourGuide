@@ -1,22 +1,37 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ReadingIn(BaseModel):
-    """앱이 올리는 측정값. BLE 바이너리(x100 정수)는 앱에서 풀어 실수로 보낸다."""
+    """앱이 올리는 측정값. BLE 바이너리(x100 정수)는 앱에서 풀어 실수로 보낸다.
 
-    sensor_id: int = Field(ge=0, le=255)
-    seq: int = Field(ge=0, le=2**32 - 1)
-    measured_at: int = Field(ge=0, description="측정 시각 (Unix 초)")
-    temperature: float = Field(ge=-40, le=85, description="℃")
-    humidity: float = Field(ge=0, le=100, description="%")
+    센서는 mac 으로 찾고, mac 이 없으면(iOS) ble_name 으로 찾는다.
+    """
+
+    ble_name: str = Field(min_length=1, max_length=50, description="BLE 광고 이름 (예: opensrc1)")
+    mac: str | None = Field(
+        default=None,
+        pattern=r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$",
+        description="센서 MAC 주소. iOS 는 알 수 없어 생략할 수 있다",
+    )
+    measured_at: int = Field(ge=0, description="패킷의 측정 시각 (Unix 초)")
+    temperature: float = Field(description="℃. 물리적 범위(-40~85) 밖이면 저장은 하되 오류값으로 제외")
+    humidity: float = Field(description="%. 범위(0~100) 밖이면 저장은 하되 오류값으로 제외")
+    aqi: int | None = Field(default=None, ge=0, le=255)
+    tvoc: int | None = Field(default=None, ge=0, le=65535, description="ppb")
+    eco2: int | None = Field(default=None, ge=0, le=65535, description="ppm")
+    rssi: int | None = Field(default=None, ge=-127, le=20, description="dBm")
+
+    @field_validator("mac")
+    @classmethod
+    def normalize_mac(cls, v: str | None) -> str | None:
+        return v.upper().replace("-", ":") if v else v
 
 
 class ReadingOut(BaseModel):
     sensor_id: int
-    seq: int
     measured_at: int
     temperature: float
-    humidity: float
+    humidity: float | None = Field(description="연구실 API 로 가져온 값에는 습도가 없어 null")
     age_minutes: int = Field(description="측정 후 경과 시간(분). 'n분 전 측정' 표시용")
     is_stale: bool = Field(description="age_minutes 가 기준(STALE_MINUTES) 이상이면 true")
     is_suspect: bool = Field(
@@ -26,7 +41,7 @@ class ReadingOut(BaseModel):
 
 class AverageOut(BaseModel):
     temperature: float
-    humidity: float
+    humidity: float | None = Field(description="습도 값이 있는 측정값이 없으면 null")
     count: int = Field(description="평균에 쓰인 측정값 개수")
     window_minutes: int = Field(description="평균을 낸 시간 범위(분)")
 
@@ -36,6 +51,7 @@ class SensorOut(BaseModel):
     ble_name: str
     mac: str
     location: str = Field(description="설치 위치")
+    lab_name: str | None = Field(description="연구실 공용 API 의 센서 이름 (예: sensor 07)")
     latitude: float | None
     longitude: float | None
 
@@ -90,3 +106,22 @@ class CourseOut(BaseModel):
     description: str
     total_minutes: int
     spots: list[CourseSpotOut]
+
+
+class LabSyncResultOut(BaseModel):
+    fetched: int = Field(description="연구실 API 가 준 항목 수")
+    unknown_sensor: int = Field(description="등록되지 않은 센서라 건너뜀")
+    not_fresh: int = Field(description="1시간 이내 갱신이 아니라 건너뜀")
+    invalid: int = Field(description="시각이나 온도를 읽을 수 없어 건너뜀")
+    duplicate: int = Field(description="이미 저장된 값")
+    stored: int = Field(description="새로 저장")
+
+
+class LabSyncStatusOut(BaseModel):
+    enabled: bool
+    interval_seconds: int
+    url: str
+    last_attempt: int | None = Field(description="마지막으로 시도한 시각(Unix 초)")
+    last_success: int | None = Field(description="마지막으로 성공한 시각(Unix 초)")
+    last_error: str | None = Field(description="마지막 시도가 실패했다면 원인")
+    last_result: LabSyncResultOut | None

@@ -7,13 +7,14 @@ from . import models
 from .database import SessionLocal
 
 # 실제 센서 5대 (수업에서 공유된 정보). 센서 N 은 BLE 이름 opensrcN 이다.
+# 연구실 이름(lab_name)과 좌표는 연구실 공용 API(/sensor/api/map)에서 확인한 값이다. (부록 C 대응표)
 SENSORS = [
-    # (번호, BLE 이름, MAC, 설치 위치)
-    (1, "opensrc1", "88:A2:9E:9B:5F:09", "도서관 뒤편 (진로창업본부 입구)"),
-    (2, "opensrc2", "88:A2:9E:9B:5E:6A", "사회과학대 입구"),
-    (3, "opensrc3", "B8:27:EB:D3:40:06", "사회과학대 옆 이마트24 건너편"),
-    (4, "opensrc4", "D8:3A:DD:79:8F:80", "테니스장 앞"),
-    (5, "opensrc5", "D8:3A:DD:C1:89:5B", "테니스장 건너편"),
+    # (번호, BLE 이름, MAC, 설치 위치, 연구실 이름, 위도, 경도)
+    (1, "opensrc1", "88:A2:9E:9B:5F:09", "도서관 뒤편 (진로창업본부 입구)", "sensor 07", 36.628895, 127.457839),
+    (2, "opensrc2", "88:A2:9E:9B:5E:6A", "사회과학대 입구", "sensor 15", 36.62974, 127.456406),
+    (3, "opensrc3", "B8:27:EB:D3:40:06", "사회과학대 옆 이마트24 건너편", "sensor 31", 36.629309, 127.45748),
+    (4, "opensrc4", "D8:3A:DD:79:8F:80", "테니스장 앞", "sensor 32", 36.63027, 127.455806),
+    (5, "opensrc5", "D8:3A:DD:C1:89:5B", "테니스장 건너편", "sensor 33", 36.630931, 127.454222),
 ]
 
 # [샘플] 센서 설치 위치를 기준으로 만든 임시 장소. 설명과 코스는 샘플이다.
@@ -40,15 +41,34 @@ COURSES = [
 
 
 def _seed_sensors(db) -> None:
-    """등록되지 않은 센서만 추가한다. 이미 만들어진 DB에도 안전하게 실행된다."""
-    existing = set(db.scalars(select(models.Sensor.id)).all())
-    for sensor_id, ble_name, mac, location in SENSORS:
-        if sensor_id not in existing:
-            db.add(models.Sensor(id=sensor_id, ble_name=ble_name, mac=mac, location=location))
+    """센서를 등록하고, 이미 있는 센서에 비어 있는 연구실 이름과 좌표를 채운다.
+
+    이미 만들어진 DB에도 안전하게 실행된다. 이미 채워진 값은 덮어쓰지 않는다.
+    """
+    existing = {s.id: s for s in db.scalars(select(models.Sensor)).all()}
+    for sensor_id, ble_name, mac, location, lab_name, lat, lon in SENSORS:
+        sensor = existing.get(sensor_id)
+        if sensor is None:
+            db.add(
+                models.Sensor(
+                    id=sensor_id, ble_name=ble_name, mac=mac, location=location,
+                    lab_name=lab_name, latitude=lat, longitude=lon,
+                )
+            )
+            continue
+        if sensor.lab_name is None:
+            sensor.lab_name = lab_name
+        if sensor.latitude is None:
+            sensor.latitude, sensor.longitude = lat, lon
     db.commit()
 
 
-def seed_if_empty() -> None:
+def seed_if_empty(sample_readings: bool = True) -> None:
+    """센서, 샘플 장소와 코스를 넣는다. DB 가 비어 있을 때만 장소와 코스가 들어간다.
+
+    sample_readings: 센서마다 샘플 측정값 1건을 넣는다. 연구실 연동이 켜져 있으면 실제 값이 들어오므로
+    샘플 값이 실제 값처럼 보이지 않게 끈다. (테스트와 연동을 끈 오프라인 개발에서는 켠다)
+    """
     with SessionLocal() as db:
         _seed_sensors(db)
         if db.scalars(select(models.Spot.id).limit(1)).first() is not None:
@@ -73,11 +93,10 @@ def seed_if_empty() -> None:
             )
 
         now = int(time.time())
-        for sid in range(1, 6):  # 센서마다 샘플 측정값 1건
+        for sid in range(1, 6) if sample_readings else ():  # 센서마다 샘플 측정값 1건
             db.add(
                 models.Reading(
                     sensor_id=sid,
-                    seq=1,
                     measured_at=now - 120,
                     temperature=20.0 + sid,
                     humidity=50.0 + sid,

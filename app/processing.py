@@ -4,12 +4,26 @@ from collections.abc import Sequence
 from .models import Reading
 
 
-def is_valid_reading(temperature: float, humidity: float) -> bool:
-    """온도와 습도가 모두 0.0이면 센서 오류값으로 본다.
+# 센서(AHT21)가 낼 수 있는 물리적 범위. 벗어나면 오류값으로 본다
+TEMPERATURE_RANGE = (-40.0, 85.0)  # ℃
+HUMIDITY_RANGE = (0.0, 100.0)  # %
 
-    연결 불량 등으로 센서가 0만 올려 보내는 경우가 있다 (#9 에서 센서 3, 4 확인).
+
+def is_valid_reading(temperature: float, humidity: float | None) -> bool:
+    """오류값이 아니면 True. 아래 경우는 센서 오류값으로 본다.
+
+    - 온도나 습도가 물리적 범위를 벗어남
+    - 온도와 습도가 모두 0.0 (연결 불량 등으로 0만 올라오는 경우, #9 에서 센서 3, 4 확인)
+
     온도 0.0도는 겨울에 실제로 나올 수 있어서, 습도까지 함께 0일 때만 무효로 본다.
+    습도가 없는 값(연구실 API)은 온도만 본다. NaN 은 범위 비교가 거짓이 되어 무효로 처리된다.
     """
+    if not (TEMPERATURE_RANGE[0] <= temperature <= TEMPERATURE_RANGE[1]):
+        return False
+    if humidity is None:
+        return True
+    if not (HUMIDITY_RANGE[0] <= humidity <= HUMIDITY_RANGE[1]):
+        return False
     return not (temperature == 0.0 and humidity == 0.0)
 
 
@@ -51,11 +65,15 @@ def sensor_status(
     return "ok"
 
 
-def average(readings: Sequence[Reading]) -> tuple[float, float, int] | None:
-    """(평균 온도, 평균 습도, 개수). 측정값이 없으면 None."""
+def average(readings: Sequence[Reading]) -> tuple[float, float | None, int] | None:
+    """(평균 온도, 평균 습도, 개수). 측정값이 없으면 None.
+
+    습도는 값이 있는 측정값만으로 평균을 내고, 하나도 없으면 None 이다.
+    """
     if not readings:
         return None
     n = len(readings)
     temperature = sum(r.temperature for r in readings) / n
-    humidity = sum(r.humidity for r in readings) / n
-    return round(temperature, 2), round(humidity, 2), n
+    humidities = [r.humidity for r in readings if r.humidity is not None]
+    humidity = round(sum(humidities) / len(humidities), 2) if humidities else None
+    return round(temperature, 2), humidity, n

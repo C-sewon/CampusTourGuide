@@ -20,3 +20,14 @@ FIXED_VALUE_MINUTES = _int("FIXED_VALUE_MINUTES", 10, minimum=0)
 
 # 최근 평균을 계산하는 시간 범위(분)
 AVG_WINDOW_MINUTES = _int("AVG_WINDOW_MINUTES", 30)
+
+
+def _flag(name: str, default: bool) -> bool:
+    return os.getenv(name, "1" if default else "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+# 연구실 공용 API(센서 최신 데이터)에서 온도를 주기적으로 가져온다. 끄려면 LAB_SYNC_ENABLED=0
+LAB_SYNC_ENABLED = _flag("LAB_SYNC_ENABLED", True)
+LAB_SYNC_URL = os.getenv("LAB_SYNC_URL", "http://203.255.81.72:10021/sensor/api/map")
+LAB_SYNC_SECONDS = _int("LAB_SYNC_SECONDS", 60, minimum=10)  # 가져오는 간격(초)
+LAB_SYNC_TIMEOUT = _int("LAB_SYNC_TIMEOUT", 10)  # 요청 제한 시간(초)
