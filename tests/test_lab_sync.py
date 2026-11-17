@@ -96,15 +96,58 @@ def test_sync_is_idempotent_and_dedupes(db):
     assert count_readings(db, "lab") == 1
 
 
-def test_sync_skips_unknown_sensors_and_stale_rows(db):
+def test_sync_skips_unusable_names_and_stale_rows(db):
     rows = [
-        row(sensor="sensor 18"),  # 등록되지 않은 센서
+        row(sensor="pws01"),  # 이름 형식이 다름 (미사용 센서)
+        row(sensor="vs01"),
         row(sensor="sensor 31", fresh=False),  # 1시간 이내 갱신이 아님 (opensrc3)
-        row(sensor="pws01"),  # 이름 형식이 다름
     ]
     result = lab_sync.sync_rows(db, rows, now=NOW)
-    assert (result.unknown_sensor, result.not_fresh, result.stored) == (2, 1, 0)
+    assert (result.unknown_sensor, result.not_fresh, result.stored, result.new_sensors) == (2, 1, 0, 0)
     assert count_readings(db, "lab") == 0
+
+
+def test_sync_registers_unknown_lab_sensors_with_location(db):
+    other = row(sensor="sensor 18", temperature=20)
+    other["latitude"], other["longitude"] = 36.62752, 127.453162
+    result = lab_sync.sync_rows(db, [other], now=NOW)
+    assert (result.new_sensors, result.stored) == (1, 1)
+
+    sensor = db.scalars(select(models.Sensor).where(models.Sensor.lab_name == "sensor 18")).one()
+    assert sensor.id == 118  # 100 + 연구실 번호
+    assert sensor.kind == "lab"
+    assert (sensor.ble_name, sensor.mac) == (None, None)
+    assert (sensor.latitude, sensor.longitude) == (36.62752, 127.453162)
+    assert sensor.location == "연구실 센서 18번"
+    saved = db.scalars(select(models.Reading).where(models.Reading.sensor_id == 118)).one()
+    assert saved.temperature == 20.0 and saved.source == "lab"
+
+
+def test_sync_registers_a_lab_sensor_once(db):
+    other = row(sensor="sensor 18")
+    first = lab_sync.sync_rows(db, [other], now=NOW)
+    second = lab_sync.sync_rows(db, [other], now=NOW)
+    assert (first.new_sensors, second.new_sensors) == (1, 0)
+    assert db.scalar(select(func.count()).select_from(models.Sensor).where(models.Sensor.kind == "lab")) == 1
+
+
+def test_sync_does_not_register_a_sensor_without_location(db):
+    no_location = row(sensor="sensor 18")
+    del no_location["latitude"], no_location["longitude"]
+    result = lab_sync.sync_rows(db, [no_location], now=NOW)
+    assert (result.new_sensors, result.unknown_sensor, result.stored) == (0, 1, 0)
+
+
+def test_not_fresh_lab_sensor_is_registered_but_has_no_reading(db):
+    result = lab_sync.sync_rows(db, [row(sensor="sensor 18", fresh=False)], now=NOW)
+    assert (result.new_sensors, result.not_fresh, result.stored) == (1, 1, 0)
+
+
+def test_opensrc_sensors_are_not_registered_twice(db):
+    result = lab_sync.sync_rows(db, [row(sensor="sensor 07"), row(sensor="sensor 33")], now=NOW)
+    assert result.new_sensors == 0  # 이미 opensrc1, opensrc5 로 등록되어 있다
+    kinds = {s.lab_name: s.kind for s in db.scalars(select(models.Sensor))}
+    assert kinds["sensor 07"] == "opensrc"
 
 
 def test_sync_skips_unreadable_and_future_rows(db):

@@ -271,12 +271,16 @@ def post_reading(body: schemas.ReadingIn, response: Response, db: Session = Depe
 
 
 @app.get("/api/sensors", response_model=list[schemas.SensorOut])
-def list_sensors(db: Session = Depends(get_db)):
-    """등록된 센서 목록 (BLE 이름, MAC, 설치 위치)."""
-    sensors = db.scalars(select(models.Sensor).order_by(models.Sensor.id)).all()
+def list_sensors(kind: str | None = None, db: Session = Depends(get_db)):
+    """등록된 센서 목록. kind=opensrc 또는 kind=lab 으로 거를 수 있다."""
+    query = select(models.Sensor).order_by(models.Sensor.id)
+    if kind:
+        query = query.where(models.Sensor.kind == kind)
+    sensors = db.scalars(query).all()
     return [
         schemas.SensorOut(
             sensor_id=s.id,
+            kind=s.kind,
             ble_name=s.ble_name,
             mac=s.mac,
             location=s.location,
@@ -289,8 +293,11 @@ def list_sensors(db: Session = Depends(get_db)):
 
 
 @app.get("/api/sensors/status", response_model=list[schemas.SensorStatusOut])
-def sensors_status(db: Session = Depends(get_db)):
-    """센서별 상태. 등록된 센서, 장소에 연결된 센서, 측정값을 보낸 적 있는 센서를 모두 보여준다."""
+def sensors_status(kind: str | None = None, db: Session = Depends(get_db)):
+    """센서별 상태. 등록된 센서, 장소에 연결된 센서, 측정값을 보낸 적 있는 센서를 모두 보여준다.
+
+    kind=opensrc 또는 kind=lab 으로 거르면 등록된 해당 종류의 센서만 보여준다.
+    """
     registered = {s.id: s for s in db.scalars(select(models.Sensor)).all()}
     spot_names: dict[int, list[str]] = {}
     for s in db.scalars(select(models.Spot).order_by(models.Spot.id)):
@@ -300,8 +307,12 @@ def sensors_status(db: Session = Depends(get_db)):
                 names.append(s.name)
     reported = set(db.scalars(select(models.Reading.sensor_id).distinct()).all())
 
+    sensor_ids = sorted(set(registered) | set(spot_names) | reported)
+    if kind:
+        sensor_ids = [i for i in sensor_ids if i in registered and registered[i].kind == kind]
+
     result = []
-    for sensor_id in sorted(set(registered) | set(spot_names) | reported):
+    for sensor_id in sensor_ids:
         sensor = registered.get(sensor_id)
         latest, _ = _sensor_environment(db, sensor_id)
         last_received, received_count = db.execute(
@@ -312,6 +323,7 @@ def sensors_status(db: Session = Depends(get_db)):
         result.append(
             schemas.SensorStatusOut(
                 sensor_id=sensor_id,
+                kind=sensor.kind if sensor else None,
                 ble_name=sensor.ble_name if sensor else None,
                 mac=sensor.mac if sensor else None,
                 location=sensor.location if sensor else None,

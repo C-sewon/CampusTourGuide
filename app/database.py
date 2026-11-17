@@ -44,7 +44,7 @@ def ensure_current_schema(bind=None) -> None:
             problems.append("spots")
     if inspector.has_table("sensors"):
         columns = {c["name"] for c in inspector.get_columns("sensors")}
-        if "lab_name" not in columns:
+        if not {"lab_name", "kind"} <= columns:
             problems.append("sensors")
     if problems:
         raise RuntimeError(

@@ -5,13 +5,19 @@ from .database import Base
 
 
 class Sensor(Base):
-    """캠퍼스에 설치된 Pi 센서. 센서 N 은 BLE 이름이 opensrcN 인 센서이고 id 도 N 이다."""
+    """캠퍼스에 설치된 센서.
+
+    kind 가 opensrc 면 우리 팀이 쓰는 오픈소스 센서이다. 센서 N 은 BLE 이름이 opensrcN 인 센서이고 id 도 N 이다.
+    kind 가 lab 이면 연구실 센서이다. 연구실 API 에서 자동 등록하며 id 는 100 + 연구실 번호이다.
+    (sensor 18 은 id 118). 연구실 센서는 MAC 과 BLE 이름이 없다.
+    """
 
     __tablename__ = "sensors"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
-    ble_name: Mapped[str] = mapped_column(String(50), unique=True)
-    mac: Mapped[str] = mapped_column(String(17), unique=True)  # 대문자, 콜론 구분
+    kind: Mapped[str] = mapped_column(String(10), default="opensrc", server_default="opensrc")
+    ble_name: Mapped[str | None] = mapped_column(String(50), unique=True)
+    mac: Mapped[str | None] = mapped_column(String(17), unique=True)  # 대문자, 콜론 구분
     location: Mapped[str] = mapped_column(String(100))  # 설치 위치
     lab_name: Mapped[str | None] = mapped_column(String(20), unique=True)  # 연구실 API 의 센서 이름 (예: sensor 07)
     latitude: Mapped[float | None] = mapped_column(Float)

@@ -3,7 +3,8 @@
 - 연구실 API 는 온도(정수, 소수점 버림)와 CO2 만 준다. 습도는 없으므로 humidity 는 비워 둔다.
 - 1시간 이내에 갱신된 값(fresh)만 가져온다.
 - 우리 DB 에 저장해 두므로 연구실 서버가 응답하지 않아도 마지막 값을 보여줄 수 있다.
-- 지금은 sensors 테이블에 연구실 이름(lab_name)이 등록된 센서(오픈소스 5대)만 처리한다.
+- 연구실 API 에 나오는 센서는 위치(위경도)가 있으면 sensors 테이블에 자동으로 등록한다. (kind=lab)
+  오픈소스 센서 5대는 연구실 이름(lab_name)으로 이미 등록되어 있어 같은 센서로 처리한다.
 """
 import logging
 import re
@@ -29,6 +30,7 @@ _MONTHS = {
 }
 _TIME_RE = re.compile(r"^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})$")
 _FUTURE_TOLERANCE = 300  # 센서 시계가 이만큼(초) 빠른 것까지는 허용
+LAB_SENSOR_ID_BASE = 100  # 연구실 센서의 id = 100 + 연구실 번호 (sensor 18 은 118). opensrc 는 1~5 라 겹치지 않는다
 
 
 def parse_lab_time(text: str) -> int | None:
@@ -55,7 +57,8 @@ def normalize_lab_name(name: str) -> str | None:
 @dataclass
 class SyncResult:
     fetched: int = 0  # API 가 준 항목 수
-    unknown_sensor: int = 0  # 등록되지 않은 센서라 건너뜀
+    new_sensors: int = 0  # 새로 등록한 연구실 센서
+    unknown_sensor: int = 0  # 센서 이름 형식이 다르거나 위치가 없어 건너뜀
     not_fresh: int = 0  # 1시간 이내 갱신이 아니라 건너뜀
     invalid: int = 0  # 시각이나 온도를 읽을 수 없어 건너뜀
     duplicate: int = 0  # 이미 저장된 값
@@ -71,6 +74,25 @@ def fetch_rows(url: str | None = None, timeout: float | None = None) -> list[dic
     return rows
 
 
+def _register_lab_sensor(db: Session, name: str, row: dict) -> models.Sensor | None:
+    """연구실 센서를 sensors 표에 등록한다. 위치(위경도)를 알 수 없으면 등록하지 않는다."""
+    try:
+        latitude, longitude = float(row["latitude"]), float(row["longitude"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    number = int(name.split()[1])
+    sensor = models.Sensor(
+        id=LAB_SENSOR_ID_BASE + number,
+        kind="lab",
+        lab_name=name,
+        location=f"연구실 센서 {number}번",
+        latitude=latitude,
+        longitude=longitude,
+    )
+    db.add(sensor)
+    return sensor
+
+
 def sync_rows(db: Session, rows: list[dict], now: int | None = None) -> SyncResult:
     """API 항목들을 readings 에 저장한다. 같은 (센서, 측정 시각)은 한 번만 저장한다."""
     now = int(time.time()) if now is None else now
@@ -81,6 +103,11 @@ def sync_rows(db: Session, rows: list[dict], now: int | None = None) -> SyncResu
         try:
             name = normalize_lab_name(row["sensor"])
             sensor = sensors.get(name) if name else None
+            if sensor is None and name:
+                sensor = _register_lab_sensor(db, name, row)
+                if sensor is not None:
+                    sensors[name] = sensor
+                    result.new_sensors += 1
             if sensor is None:
                 result.unknown_sensor += 1
                 continue
