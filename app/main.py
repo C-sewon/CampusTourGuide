@@ -144,20 +144,59 @@ def _sensor_environment(
     return latest, average
 
 
+def _spot_environment(
+    db: Session, spot: models.Spot
+) -> tuple[schemas.ReadingOut | None, schemas.AverageOut | None, schemas.ValueSourceOut | None]:
+    """장소가 보여줄 온도. 연결된 센서를 우선순위 순서로 보고 최신 정상 값이 있는 센서를 고른다.
+
+    - 오래되지 않은(is_stale 가 아닌) 값이 있는 첫 센서를 쓴다.
+    - 전부 오래됐다면 가장 최근 값을 낸 센서를 쓴다. (오래됨 표시가 붙은 채로)
+    - 정상 값이 하나도 없으면 값 없음(None)이다.
+    """
+    candidates = []
+    for link in spot.sensor_links:
+        latest, average = _sensor_environment(db, link.sensor_id)
+        if latest is not None:
+            candidates.append((link, latest, average))
+    if not candidates:
+        return None, None, None
+
+    chosen = next((c for c in candidates if not c[1].is_stale), None)
+    if chosen is None:
+        chosen = max(candidates, key=lambda c: c[1].measured_at)
+    link, latest, average = chosen
+    source = schemas.ValueSourceOut(
+        sensor_id=link.sensor_id,
+        ble_name=link.sensor.ble_name,
+        location=link.sensor.location,
+        is_on_site=link.on_site,
+    )
+    return latest, average, source
+
+
 def _spot_out(db: Session, s: models.Spot) -> schemas.SpotOut:
-    latest, average = _sensor_environment(db, s.sensor_id)
+    latest, average, source = _spot_environment(db, s)
+    on_site = [link.sensor for link in s.sensor_links if link.on_site]
     return schemas.SpotOut(
         id=s.id,
         name=s.name,
         name_en=s.name_en,
         description=s.description,
         description_en=s.description_en,
-        sensor_id=s.sensor_id,
-        ble_name=s.ble_name,
         latitude=s.latitude,
         longitude=s.longitude,
+        arrival=schemas.ArrivalOut(
+            method="ble_auto" if on_site else "manual",
+            sensors=[
+                schemas.SpotSensorOut(
+                    sensor_id=x.id, ble_name=x.ble_name, mac=x.mac, location=x.location
+                )
+                for x in on_site
+            ],
+        ),
         latest_reading=latest,
         recent_average=average,
+        value_source=source,
     )
 
 
@@ -254,10 +293,11 @@ def sensors_status(db: Session = Depends(get_db)):
     """센서별 상태. 등록된 센서, 장소에 연결된 센서, 측정값을 보낸 적 있는 센서를 모두 보여준다."""
     registered = {s.id: s for s in db.scalars(select(models.Sensor)).all()}
     spot_names: dict[int, list[str]] = {}
-    for s in db.scalars(
-        select(models.Spot).where(models.Spot.sensor_id.is_not(None)).order_by(models.Spot.id)
-    ):
-        spot_names.setdefault(s.sensor_id, []).append(s.name)
+    for s in db.scalars(select(models.Spot).order_by(models.Spot.id)):
+        for link in s.sensor_links:
+            names = spot_names.setdefault(link.sensor_id, [])
+            if s.name not in names:
+                names.append(s.name)
     reported = set(db.scalars(select(models.Reading.sensor_id).distinct()).all())
 
     result = []
