@@ -76,8 +76,8 @@ uvicorn app.main:app --reload
 ```
 
 - API 문서(Swagger): http://127.0.0.1:8000/docs
-- 최초 실행 시 `campus_tour.db`가 생성되고 센서 5대와 샘플 데이터(장소 5곳, 코스 2개, 샘플 측정값)가 들어갑니다. 샘플 장소와 코스는 설명에 `[샘플]`이 붙어 있고, 센서 설치 위치를 기준으로 만든 임시 데이터입니다.
-- 센서는 이미 만들어진 DB에도 자동으로 추가되지만, **장소와 코스 샘플은 DB가 비어 있을 때만** 들어갑니다. 예전에 만든 `campus_tour.db`로 새 샘플 장소를 보려면 파일을 지우고 다시 실행하세요.
+- 최초 실행 시 `campus_tour.db`가 생성되고 센서 5대와 샘플 데이터(장소 5곳, 코스 2개)가 들어갑니다. 샘플 장소와 코스는 설명에 `[샘플]`이 붙어 있고, 센서 설치 위치를 기준으로 만든 임시 데이터입니다. 장소 5곳은 센서가 하나인 장소 3곳, 센서 4와 5를 묶은 테니스장, 센서가 없어 가까운 센서 값을 빌려 쓰는 샘플 장소 1곳입니다. 연구실 연동을 끈 경우에만 센서마다 샘플 측정값이 들어갑니다.
+- 센서는 이미 만들어진 DB에도 자동으로 추가되지만, **장소와 코스 샘플은 DB가 비어 있을 때만** 들어갑니다. **장소 표의 구조가 바뀌어서**(장소가 센서를 여러 개 쓰도록 `spot_sensors` 표 추가) 예전 `campus_tour.db`로 시작하면 안내 메시지가 나옵니다. 파일을 지우고 다시 실행하세요.
 - DB 변경: 환경변수 `DATABASE_URL` (기본 `sqlite:///./campus_tour.db`)
 - 서버를 켜면 연구실 서버에서 센서 온도를 1분마다 가져옵니다. 연구실 서버에 접속할 수 없는 곳(교외 등)에서 개발할 때는 `LAB_SYNC_ENABLED=0`으로 끄세요. 연동이 켜져 있으면 샘플 측정값은 넣지 않고(실제 값처럼 보이지 않게), 꺼져 있으면 센서마다 샘플 측정값 1건이 들어갑니다.
 - 연동 상태는 `GET /api/lab-sync/status`로 확인합니다.
@@ -94,8 +94,8 @@ pytest
 | 메서드 | 경로 | 설명 |
 | --- | --- | --- |
 | POST | `/api/readings` | 측정값 업로드. 신규는 201 `created`, 같은 센서의 같은 `measured_at`이면 200 `duplicate`, 등록되지 않은 센서는 404 |
-| GET | `/api/spots` | 장소 목록 + 최신 환경값 |
-| GET | `/api/spots/{id}` | 장소 상세 + 최신 환경값 |
+| GET | `/api/spots` | 장소 목록 + 도착 방식 + 최신 온도와 출처 |
+| GET | `/api/spots/{id}` | 장소 상세 + 도착 방식 + 최신 온도와 출처 |
 | GET | `/api/courses` | 코스 목록, 장소 순서, 총 소요시간(`total_minutes`) |
 | GET | `/api/sensors` | 등록된 센서 목록 (번호, BLE 이름, MAC, 설치 위치, 좌표) |
 | GET | `/api/sensors/status` | 센서별 상태. 통합 테스트와 시연 전 점검용 |
@@ -147,18 +147,44 @@ pytest
 - **온도 -40~85도, 습도 0~100%를 벗어난 값은 거절하지 않고 저장**합니다. 다만 센서 오류값으로 보고 아래 응답의 최신값과 평균에서 제외합니다. (앱의 재전송 큐가 같은 요청을 반복하지 않도록 수업 서버와 같은 방식으로 맞춤)
 - 센서가 온도와 습도를 0.0으로만 올려도 앱에서 거르지 않고 그대로 올려 주세요. 서버가 처리합니다.
 
-### 장소 응답의 환경값 (`/api/spots`, `/api/spots/{id}`, `/api/courses`)
+### 장소 응답 (`/api/spots`, `/api/spots/{id}`, `/api/courses`의 `spot`)
 
 ```json
 {
-  "latest_reading": {
-    "sensor_id": 1, "measured_at": 1790600000,
-    "temperature": 23.5, "humidity": 48.2,
-    "age_minutes": 3, "is_stale": false, "is_suspect": false
+  "id": 4,
+  "name": "테니스장",
+  "arrival": {
+    "method": "ble_auto",
+    "sensors": [
+      { "sensor_id": 4, "ble_name": "opensrc4", "mac": "D8:3A:DD:79:8F:80", "location": "테니스장 앞" },
+      { "sensor_id": 5, "ble_name": "opensrc5", "mac": "D8:3A:DD:C1:89:5B", "location": "테니스장 건너편" }
+    ]
   },
-  "recent_average": { "temperature": 23.1, "humidity": 48.9, "count": 6, "window_minutes": 30 }
+  "latest_reading": {
+    "sensor_id": 5, "measured_at": 1790600000,
+    "temperature": 21.0, "humidity": null,
+    "age_minutes": 1, "is_stale": false, "is_suspect": false
+  },
+  "recent_average": { "temperature": 21.0, "humidity": null, "count": 3, "window_minutes": 30 },
+  "value_source": { "sensor_id": 5, "ble_name": "opensrc5", "location": "테니스장 건너편", "is_on_site": true }
 }
 ```
+
+**장소와 센서의 연결** (#2 합의)
+- 장소 하나는 센서를 **여러 개** 쓸 수 있고(우선순위 순서), 센서 하나를 여러 장소가 쓸 수도 있습니다. 센서 4(앞)와 5(건너편)는 테니스장 한 장소로 묶었습니다.
+- 온도는 연결된 센서를 우선순위 순서로 보고 **오래되지 않은 값이 있는 첫 센서**의 값을 씁니다. 전부 오래됐다면 가장 최근 값을 낸 센서의 값을 쓰고(`is_stale`이 `true`), 정상 값이 하나도 없으면 `latest_reading`이 `null`입니다. 예를 들어 센서 4가 죽어 있으면 테니스장은 센서 5의 값을 보여줍니다.
+
+**`arrival`: 도착을 어떻게 체크하는가**
+- `ble_auto`: 장소에 설치된 센서가 있어 BLE로 자동 판정합니다(수동 "도착" 버튼은 보조). `sensors`에 도착 판정에 쓰는 센서(BLE 이름, MAC)가 들어 있어서, 앱이 스캔한 센서가 이 목록에 있으면 이 장소에 도착한 것입니다.
+- `manual`: 센서가 없는 장소입니다. 방문객이 "도착" 버튼으로 체크하고 `sensors`는 빈 목록입니다.
+
+**`value_source`: 온도가 어느 센서의 값인가**
+- `is_on_site`가 `true`면 이 장소에 설치된 센서의 값이고, `false`면 센서가 없는 장소가 **가까운 센서 값을 빌려 쓴 것**입니다. 화면에는 `location`을 이용해 "사회과학대 입구 센서 기준"처럼 출처를 표시합니다.
+- 측정값이 없으면 `null`입니다.
+
+**필드 변경**: 장소의 `sensor_id`, `ble_name`은 없어졌고 `arrival.sensors`로 대체되었습니다.
+
+**환경값 설명**
 
 - `is_stale`: 측정 후 `STALE_MINUTES`(기본 30분) 이상 지났으면 `true`. 센서 전원이 꺼진 경우에 "오래된 값"으로 표시하는 용도입니다.
 - `is_suspect`: 최신 측정값과 온도, 습도가 같은 값이 `FIXED_VALUE_MIN_COUNT`(기본 5)개 이상 연속이고, 그 구간이 `FIXED_VALUE_MINUTES`(기본 10분) 이상 이어지면 `true`. 센서가 멈춘 것으로 의심하는 표시이고, **값은 버리지 않고 그대로 저장**합니다. 이때 `recent_average`는 `null`입니다. 센서가 1초 간격으로 값을 내면 몇 초 동안 같은 값이 나올 수 있어서 시간 조건을 함께 봅니다.
