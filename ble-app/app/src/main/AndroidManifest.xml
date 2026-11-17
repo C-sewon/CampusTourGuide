@@ -32,5 +32,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- 홈(탐색) 화면. 첫 화면 변경은 지유님과 정한 뒤에 한다. 지금은 Run 설정에서 직접 실행해 확인 -->
+        <activity
+            android:name=".HomeActivity"
+            android:exported="true" />
+        <!-- 코스 둘러보기 화면 (홈의 추천 코스 카드에서 연다) -->
+        <activity
+            android:name=".CourseActivity"
+            android:exported="false" />
+        <!-- 장소 안내 화면 (코스 화면 "이 코스 시작하기", 홈 "투어 시작하기"에서 연다) -->
+        <activity
+            android:name=".SpotActivity"
+            android:exported="false" />
     </application>
 </manifest>

@@ -139,6 +139,15 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --env-file .env
 - [ ] `/api/sensors/status`에서 어떤 센서가 정상인지 확인했다. (센서 3, 4는 값이 없을 수 있음)
 - [ ] 서버를 켜 둔 터미널 창을 닫지 않는다. (닫으면 서버가 꺼집니다)
 
+## 외부 라이브러리와 데이터 출처
+
+| 이름 | 쓰는 곳 | 라이선스 / 조건 |
+| --- | --- | --- |
+| [osmdroid](https://github.com/osmdroid/osmdroid) 6.1.18 | 앱 지도 (`ble-app`) | Apache 2.0 |
+| OpenStreetMap 지도 타일 | 앱 지도 (`ble-app`) | © OpenStreetMap contributors (ODbL). 지도에 출처를 표시해야 합니다 |
+
+서버에서 쓰는 라이브러리는 `requirements.txt`에 있습니다.
+
 ## API
 
 | 메서드 | 경로 | 설명 |

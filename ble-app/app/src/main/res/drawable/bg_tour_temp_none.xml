@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 온도 값 없음 카드: 연회색 + 점선 테두리 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#FFF7F8F5" />
+    <corners android:radius="20dp" />
+    <stroke android:width="1.5dp" android:color="#FFB9C6B5" android:dashWidth="5dp" android:dashGap="4dp" />
+</shape>

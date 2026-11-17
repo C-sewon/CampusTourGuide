@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 투어 화면 색 (프로토타입 campus-on-prototype 기준) -->
+<resources>
+    <color name="tour_background">#FFF2F5EE</color>
+    <color name="tour_surface">#FFFFFFFF</color>
+    <color name="tour_primary">#FF1D3B2A</color>
+    <color name="tour_on_primary">#FFFFFFFF</color>
+    <color name="tour_mint">#FFE2EDE0</color>
+    <color name="tour_text">#FF17271D</color>
+    <color name="tour_text_secondary">#FF5B6960</color>
+    <color name="tour_divider">#FFE7ECE5</color>
+    <color name="tour_placeholder">#FFE8ECE6</color>
+    <color name="tour_warm_bg">#FFFBEBD6</color>
+    <color name="tour_warm_text">#FF6E420B</color>
+    <color name="tour_warm_icon">#FF9A5B12</color>
+    <color name="tour_grey_bg">#FFEEF0EC</color>
+
+    <!-- 장소 안내, 코스 화면 -->
+    <color name="tour_warm_chip_text">#FF7A4A0E</color>
+    <color name="tour_therm">#FFB5651D</color>
+    <color name="tour_banner_sub">#FF46564B</color>
+    <color name="tour_blue">#FF2F6BD9</color>
+    <color name="tour_blue_bg">#FFCFE0F7</color>
+    <color name="tour_illustration_bg">#FFDCE9D8</color>
+    <color name="tour_next_bg">#FFE6ECE2</color>
+    <color name="tour_none_tile">#FFE9ECE6</color>
+    <color name="tour_disabled">#FFC9D3C6</color>
+    <color name="tour_disabled_text">#FF8A968D</color>
+    <color name="tour_bar">#FF2F6B47</color>
+    <color name="tour_bar_track">#FFE4EAE1</color>
+    <color name="tour_row_divider">#FFEDF1EB</color>
+</resources>

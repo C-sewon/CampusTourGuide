@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 장소 안내 화면의 건물 그림 (프로토타입 그림을 옮김). 장소 사진이 생기면 바꾼다 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="118dp"
+    android:viewportWidth="200"
+    android:viewportHeight="118">
+    <path android:fillColor="#FFC7DCC4" android:pathData="M8,112a92,6 0,1 0,184 0a92,6 0,1 0,-184 0z" />
+    <path android:fillColor="#FF5B6960" android:pathData="M20,88h4v22h-4z M176,88h4v22h-4z" />
+    <path android:fillColor="#FF2F6B47" android:pathData="M6,78a16,16 0,1 0,32 0a16,16 0,1 0,-32 0z M162,78a16,16 0,1 0,32 0a16,16 0,1 0,-32 0z" />
+    <path android:fillColor="#FFFFFFFF" android:strokeColor="#FF1D3B2A" android:strokeWidth="2" android:pathData="M47,46h106a3,3 0,0 1,3 3v58a3,3 0,0 1,-3 3h-106a3,3 0,0 1,-3 -3v-58a3,3 0,0 1,3 -3z" />
+    <path android:fillColor="#FF1D3B2A" android:pathData="M40,48L100,18L160,48Z" />
+    <path android:fillColor="#FF1D3B2A" android:pathData="M56,58h12v16h-12z M76,58h12v16h-12z M112,58h12v16h-12z M132,58h12v16h-12z M56,84h12v16h-12z M132,84h12v16h-12z M90,80h20v30h-20z" />
+    <path android:strokeColor="#FF1D3B2A" android:strokeWidth="2" android:pathData="M100,18V6" />
+    <path android:fillColor="#FF2F6B47" android:pathData="M100,6h12l-3,4 3,4h-12z" />
+</vector>

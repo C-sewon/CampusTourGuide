@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 코스 둘러보기 화면 문구 -->
+<resources>
+    <string name="course_title">코스 둘러보기</string>
+</resources>
