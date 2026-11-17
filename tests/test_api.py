@@ -504,3 +504,16 @@ def test_seed_without_sample_readings_has_no_fake_values():
         assert db.scalar(select(func.count()).select_from(models.Reading)) == 0
         assert db.scalar(select(func.count()).select_from(models.Spot)) == 5  # 장소와 센서는 들어간다
         assert db.scalar(select(func.count()).select_from(models.Sensor)) == 5
+
+
+def test_json_responses_declare_utf8_charset(client):
+    """헤더에 charset 이 없으면 iPhone Safari 등이 한글을 깨뜨려 보여 준다."""
+    for path in ("/health", "/api/spots", "/api/courses", "/api/courses/recommend", "/api/sensors"):
+        content_type = client.get(path).headers["content-type"]
+        assert content_type == "application/json; charset=utf-8", path
+
+
+def test_json_body_has_korean_text_as_utf8(client):
+    # 본문은 한글을 그대로 UTF-8 로 담는다 (유니코드 이스케이프로 바꾸지 않음)
+    spot = client.get("/api/spots/1")
+    assert "도서관" in spot.content.decode("utf-8")

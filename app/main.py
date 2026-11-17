@@ -3,6 +3,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -29,7 +30,19 @@ async def lifespan(app: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title="Campus BLE Tour Guide API", lifespan=lifespan)
+class Utf8JSONResponse(JSONResponse):
+    """글자 인코딩(charset)을 응답 헤더에 밝히는 JSON 응답.
+
+    헤더가 application/json 뿐이면 일부 브라우저(예: iPhone Safari)가 한글을 엉뚱한 인코딩으로 읽어
+    깨져 보인다. 내용은 원래 UTF-8 이므로 헤더에 charset=utf-8 을 적어 준다.
+    """
+
+    media_type = "application/json; charset=utf-8"
+
+
+app = FastAPI(
+    title="Campus BLE Tour Guide API", lifespan=lifespan, default_response_class=Utf8JSONResponse
+)
 
 
 def _reading_out(r: models.Reading, now: int, suspect: bool) -> schemas.ReadingOut:
