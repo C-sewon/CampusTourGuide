@@ -127,7 +127,7 @@ public class UploadQueue {
     }
 
     private static String keyOf(SensorRequest r) {
-        return r.getSensor() + "@" + r.getTimestamp();
+        return r.getBleName() + "@" + r.getTimestamp();
     }
 
     private void rememberKey(String key) {
