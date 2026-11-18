@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 모서리 16dp 흰 상자 (backgroundTint 로 색을 바꿔 쓴다) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#FFFFFFFF" />
+    <corners android:radius="16dp" />
+</shape>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 홈(탐색) 화면 문구 -->
+<resources>
+    <string name="home_app_title">캠퍼스 온</string>
+    <string name="home_auto_detect">자동 감지 켜짐</string>
+    <string name="home_headline">발걸음마다,\n새로운 캠퍼스</string>
+    <string name="home_subline">가까이 가면, 캠퍼스가 먼저 인사해요.</string>
+    <string name="home_map_description">캠퍼스 지도와 센서 위치</string>
+    <string name="home_start_tour">투어 시작하기</string>
+    <string name="tab_explore">탐색</string>
+    <string name="tab_guide">가이드</string>
+    <string name="tab_my_tour">내 투어</string>
+</resources>

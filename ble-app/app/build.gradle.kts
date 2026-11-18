@@ -41,6 +41,8 @@ dependencies {
     implementation("com.google.code.gson:gson:2.8.6")
     implementation("com.squareup.retrofit2:converter-scalars:2.9.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // 홈 화면 지도. OpenStreetMap 타일을 쓰는 무료 지도 (API 키 불필요, 지도에 출처 표시 필요)
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)

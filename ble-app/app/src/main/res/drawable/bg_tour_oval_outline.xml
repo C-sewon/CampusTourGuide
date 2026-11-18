@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 코스 순서 번호(미방문): 흰 동그라미 + 진한 테두리 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="#FFFFFFFF" />
+    <stroke android:width="1.5dp" android:color="#FF1D3B2A" />
+</shape>

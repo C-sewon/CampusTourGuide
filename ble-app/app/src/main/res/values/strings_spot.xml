@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 장소 안내 화면 문구 -->
+<resources>
+    <string name="spot_title">장소 안내</string>
+    <string name="spot_back">뒤로</string>
+    <string name="spot_now">이 장소의 현재 온도</string>
+    <string name="spot_about">이곳은 어떤 곳인가요?</string>
+    <string name="spot_next">다음 장소</string>
+    <string name="spot_map_description">내 위치에서 가야 할 장소까지의 지도</string>
+</resources>

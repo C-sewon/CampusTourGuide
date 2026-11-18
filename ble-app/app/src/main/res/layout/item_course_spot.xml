@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 코스 장소 순서 한 줄: 번호(방문하면 채움), 장소 이름, 방문/미방문 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="11dp"
+    android:paddingBottom="11dp">
+
+    <TextView
+        android:id="@+id/tvSpotNumber"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:background="@drawable/bg_tour_oval_outline"
+        android:gravity="center"
+        android:textColor="@color/tour_primary"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        tools:text="1" />
+
+    <TextView
+        android:id="@+id/tvSpotName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:textColor="@color/tour_text"
+        android:textSize="15sp"
+        tools:text="도서관 뒤편" />
+
+    <TextView
+        android:id="@+id/tvSpotState"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_tour_chip"
+        android:backgroundTint="@color/tour_grey_bg"
+        android:drawablePadding="4dp"
+        android:gravity="center_vertical"
+        android:paddingStart="10dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="4dp"
+        android:textColor="@color/tour_text_secondary"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        tools:text="미방문" />
+</LinearLayout>

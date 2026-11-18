@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 하단 탭: 탐색 / 내 투어 / 가이드 (프로토타입과 같음). 코스 화면은 홈의 추천 카드에서 연다. 선택 표시는 TourTabs.setup 이 정한다 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/tour_divider" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/tour_surface"
+        android:orientation="horizontal"
+        android:paddingTop="8dp"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:id="@+id/tabExplore"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:drawablePadding="2dp"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:text="@string/tab_explore"
+            android:textColor="@color/tour_text_secondary"
+            android:textSize="11sp"
+            app:drawableTint="@color/tour_text_secondary"
+            app:drawableTopCompat="@drawable/ic_tour_pin" />
+
+        <TextView
+            android:id="@+id/tabMyTour"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:drawablePadding="2dp"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:text="@string/tab_my_tour"
+            android:textColor="@color/tour_text_secondary"
+            android:textSize="11sp"
+            app:drawableTint="@color/tour_text_secondary"
+            app:drawableTopCompat="@drawable/ic_tour_swap" />
+    
+        <TextView
+            android:id="@+id/tabGuide"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:drawablePadding="2dp"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:text="@string/tab_guide"
+            android:textColor="@color/tour_text_secondary"
+            android:textSize="11sp"
+            app:drawableTint="@color/tour_text_secondary"
+            app:drawableTopCompat="@drawable/ic_tour_book" />
+    </LinearLayout>
+</LinearLayout>
