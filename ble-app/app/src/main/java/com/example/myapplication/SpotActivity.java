@@ -39,7 +39,6 @@ import org.osmdroid.views.overlay.Overlay;
 import org.osmdroid.views.overlay.Polyline;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import retrofit2.Call;
@@ -79,6 +78,19 @@ public class SpotActivity extends AppCompatActivity {
     private GeoPoint myLocation;
     /** 다음 지도 그리기에서 범위를 맞출지. 장소가 바뀌거나 처음 위치를 잡았을 때만 맞추고, 그 뒤엔 사용자가 옮긴 지도를 그대로 둔다 */
     private boolean fitPending = true;
+
+    /** 걷는 길 경로 (TourRoute). 받은 경로의 출발점·도착점과 함께 기억해 두고, 많이 움직였을 때만 다시 받는다 */
+    private TourRoute.Route route;
+    private GeoPoint routeFrom, routeTarget;
+    private okhttp3.Call routeCall;
+    private GeoPoint routeCallTarget;
+    private long lastRouteRequestMs;
+    /** 요청 간격 때문에 미룬 경로 요청을 나중에 다시 시도한다 */
+    private final Runnable routeRetry = this::retryRoute;
+    /** 내 위치가 이만큼 움직이면 경로를 다시 받는다 (서비스에 요청을 너무 많이 보내지 않으려고) */
+    private static final double ROUTE_REFRESH_M = 25;
+    private static final long ROUTE_MIN_INTERVAL_MS = 5000;
+    private static final long ROUTE_RETRY_MS = 15000;
     private final LocationCallback locationCallback = new LocationCallback() {
         @Override
         public void onLocationResult(LocationResult result) {
@@ -170,6 +182,13 @@ public class SpotActivity extends AppCompatActivity {
         super.onPause();
         mapView.onPause();
         locationClient.removeLocationUpdates(locationCallback);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (routeCall != null) routeCall.cancel();
+        mapView.removeCallbacks(routeRetry);
     }
 
     private boolean hasLocationPermission() {
@@ -280,9 +299,10 @@ public class SpotActivity extends AppCompatActivity {
     }
 
     /**
-     * 지도: 내 위치(파란 점) → 지금 가야 할 장소(초록 번호)를 직선으로 잇고, 선 가운데에 진행 방향 화살표, 위에 남은 거리.
+     * 지도: 내 위치(파란 점) → 지금 가야 할 장소(초록 번호)를 걷는 길을 따라 잇고, 선 가운데에 진행 방향 화살표, 위에 남은 거리.
      * 내 위치를 모르면(권한 거절, 실내 등) 이전 장소(회색 번호)에서 선을 긋는다. 첫 장소면 가야 할 장소만.
-     * 가야 할 장소 좌표를 모르면 건물 그림. 길을 따라가는 경로가 아니라 직선이다 (경로 계산 서비스가 필요해서).
+     * 선은 걷는 길 경로(TourRoute)를 받은 뒤에 그린다. 받는 중에는 선 없이 번호만 보여 주고(직선이 보였다가 바뀌지 않게),
+     * 경로를 받지 못하면 직선으로 그린다. 가야 할 장소 좌표를 모르면 건물 그림.
      */
     private void showMap() {
         List<Overlay> old = new ArrayList<>();
@@ -303,29 +323,59 @@ public class SpotActivity extends AppCompatActivity {
         int primary = ContextCompat.getColor(this, R.color.tour_primary);
         boolean fromMe = myLocation != null;
         GeoPoint from = fromMe ? myLocation : (index > 0 ? point(course.spots.get(index - 1).spot) : null);
+        if (from != null && from.distanceToAsDouble(target) < 1) from = null;  // 같은 자리면 선을 긋지 않는다
 
-        if (fromMe) {
-            tvDistance.setText(SpotDisplay.distance(myLocation.distanceToAsDouble(target)));
+        // 선을 그릴 점들: 이 장소로 가는 경로가 있으면 길을 따라(움직여서 새로 받는 동안엔 받아 둔 경로),
+        // 경로를 받지 못했으면 직선, 받는 중이면 선을 그리지 않는다
+        List<GeoPoint> path = new ArrayList<>();
+        boolean onRoad = false, drawLine = false;
+        if (from != null) {
+            requestRouteIfNeeded(from, target);
+            path.add(from);
+            if (route != null && sameRouteTarget(target)) {
+                // 움직여서 새 경로를 받는 동안엔 받아 둔 경로를 쓰되, 지나온 부분은 빼고 내 위치에서 가장 가까운 점부터 잇는다
+                int start = 0;
+                double best = Double.MAX_VALUE;
+                for (int i = 0; i < route.points.size(); i++) {
+                    double[] p = route.points.get(i);
+                    double d = from.distanceToAsDouble(new GeoPoint(p[0], p[1]));
+                    if (d < best) { best = d; start = i; }
+                }
+                for (int i = start; i < route.points.size(); i++) {
+                    double[] p = route.points.get(i);
+                    path.add(new GeoPoint(p[0], p[1]));
+                }
+                onRoad = true;
+            }
+            drawLine = onRoad || routeFailed(target);
+            path.add(target);
+        }
+
+        if (fromMe && (onRoad || drawLine || from == null)) {
+            tvDistance.setText(onRoad
+                    ? SpotDisplay.routeDistance(route.distanceM, route.durationSec)
+                    : SpotDisplay.distance(myLocation.distanceToAsDouble(target)));
             tvDistance.setVisibility(View.VISIBLE);
         } else {
             tvDistance.setVisibility(View.GONE);
         }
-        if (from != null && from.distanceToAsDouble(target) < 1) from = null;  // 같은 자리면 선을 긋지 않는다
 
-        if (from != null) {
+        if (from != null && !fromMe) mapView.getOverlays().add(spotMarker(from, String.valueOf(index), 0xFF9AA0A6));
+        if (drawLine) {
             // 흰 테두리 + 초록 선 (지도 위에서 잘 보이게 두 번 그린다)
-            mapView.getOverlays().add(line(from, target, 0xFFFFFFFF, 9 * density));
-            mapView.getOverlays().add(line(from, target, ContextCompat.getColor(this, R.color.tour_bar), 5 * density));
+            mapView.getOverlays().add(line(path, 0xFFFFFFFF, 9 * density));
+            mapView.getOverlays().add(line(path, ContextCompat.getColor(this, R.color.tour_bar), 5 * density));
 
+            // 선 길이의 가운데쯤에 진행 방향 화살표
+            int mid = Math.max(0, Math.min(path.size() - 2, path.size() / 2 - 1));
+            GeoPoint a = path.get(mid), b = path.get(mid + 1);
             Marker arrow = new Marker(mapView);
-            arrow.setPosition(new GeoPoint((from.getLatitude() + target.getLatitude()) / 2,
-                    (from.getLongitude() + target.getLongitude()) / 2));
+            arrow.setPosition(new GeoPoint((a.getLatitude() + b.getLatitude()) / 2,
+                    (a.getLongitude() + b.getLongitude()) / 2));
             arrow.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
-            arrow.setIcon(TourMap.arrowIcon(this, from.bearingTo(target), ContextCompat.getColor(this, R.color.tour_bar)));
+            arrow.setIcon(TourMap.arrowIcon(this, a.bearingTo(b), ContextCompat.getColor(this, R.color.tour_bar)));
             arrow.setInfoWindow(null);
             mapView.getOverlays().add(arrow);
-
-            if (!fromMe) mapView.getOverlays().add(spotMarker(from, String.valueOf(index), 0xFF9AA0A6));
         }
         mapView.getOverlays().add(spotMarker(target, String.valueOf(index + 1), primary));
         if (fromMe) {
@@ -344,22 +394,81 @@ public class SpotActivity extends AppCompatActivity {
                 mapView.getController().setZoom(18.0);
                 mapView.getController().setCenter(target);
             } else {
-                BoundingBox box = BoundingBox.fromGeoPoints(Arrays.asList(from, target));
+                BoundingBox box = BoundingBox.fromGeoPoints(path);
                 int padding = Math.round(44 * density);
                 if (mapView.getWidth() > 0) mapView.zoomToBoundingBox(box, false, padding);
-                else mapView.addOnFirstLayoutListener((v, l, t, r, b) -> mapView.zoomToBoundingBox(box, false, padding));
+                else mapView.addOnFirstLayoutListener((v, l, t, r, bb) -> mapView.zoomToBoundingBox(box, false, padding));
             }
         }
         mapView.invalidate();
     }
 
-    private Polyline line(GeoPoint from, GeoPoint to, int color, float width) {
+    private void retryRoute() {
+        if (course != null && !isFinishing() && !isDestroyed()) showMap();
+    }
+
+    private static boolean samePoint(GeoPoint a, GeoPoint b) {
+        return a != null && b != null && a.distanceToAsDouble(b) < 1;
+    }
+
+    /** 마지막으로 받은(또는 실패한) 경로가 이 장소로 가는 것인지 */
+    private boolean sameRouteTarget(GeoPoint target) {
+        return samePoint(routeTarget, target);
+    }
+
+    /** 이 장소로 가는 경로를 받지 못했고, 지금 다시 받는 중도 아닌지. 이때만 직선을 긋는다 */
+    private boolean routeFailed(GeoPoint target) {
+        return route == null && sameRouteTarget(target) && routeCall == null;
+    }
+
+    /**
+     * 경로가 없거나 많이 움직였을 때만 새로 받는다. 받으면 지도를 다시 그린다.
+     * 다른 장소로 넘어가면 바로 받는다. 같은 장소는 서비스 사용 조건 때문에 5초 안에 다시 요청하지 않고,
+     * 실패하면 15초 뒤에 다시 시도한다. 미룬 요청은 그 시간이 지나면 알아서 다시 시도한다.
+     */
+    private void requestRouteIfNeeded(GeoPoint from, GeoPoint target) {
+        if (routeCall != null) {
+            if (samePoint(routeCallTarget, target)) return;  // 이 장소 경로를 이미 받는 중
+            routeCall.cancel();                              // 다른 장소로 넘어갔으면 예전 요청은 버린다
+            routeCall = null;
+        }
+        mapView.removeCallbacks(routeRetry);
+        long now = System.currentTimeMillis();
+        if (sameRouteTarget(target)) {
+            boolean near = routeFrom != null && routeFrom.distanceToAsDouble(from) < ROUTE_REFRESH_M;
+            if (route != null && near) return;  // 이미 쓸 만한 경로가 있음
+            long wait = (route == null ? ROUTE_RETRY_MS : ROUTE_MIN_INTERVAL_MS) - (now - lastRouteRequestMs);
+            if (wait > 0) {
+                mapView.postDelayed(routeRetry, wait);
+                return;
+            }
+        }
+        lastRouteRequestMs = now;
+
+        GeoPoint reqFrom = from, reqTarget = target;
+        okhttp3.Call[] self = new okhttp3.Call[1];
+        self[0] = TourRoute.request(from.getLatitude(), from.getLongitude(),
+                target.getLatitude(), target.getLongitude(), result -> {
+                    if (routeCall != self[0]) return;  // 버린 요청
+                    routeCall = null;
+                    if (isFinishing() || isDestroyed() || course == null) return;
+                    route = result;
+                    routeFrom = reqFrom;
+                    routeTarget = reqTarget;
+                    showMap();
+                });
+        routeCall = self[0];
+        routeCallTarget = target;
+    }
+
+    private Polyline line(List<GeoPoint> points, int color, float width) {
         Polyline line = new Polyline(mapView);
-        line.setPoints(Arrays.asList(from, to));
+        line.setPoints(points);
         Paint paint = line.getOutlinePaint();
         paint.setColor(color);
         paint.setStrokeWidth(width);
         paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeJoin(Paint.Join.ROUND);
         line.setInfoWindow(null);
         return line;
     }

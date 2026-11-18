@@ -51,6 +51,13 @@ public class SpotDisplayTest {
     }
 
     @Test
+    public void routeDistance() {
+        assertEquals("남은 거리 약 400m · 도보 약 5분", SpotDisplay.routeDistance(400.2, 318.5));
+        assertEquals("남은 거리 약 50m · 도보 약 1분", SpotDisplay.routeDistance(48, 20));
+        assertEquals("거의 다 왔어요", SpotDisplay.routeDistance(15, 10));
+    }
+
+    @Test
     public void buttonsAndWalk() {
         assertEquals("도보 4분", SpotDisplay.walk(4));
         assertEquals("다음 장소로", SpotDisplay.nextLabel(false));

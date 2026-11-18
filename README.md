@@ -145,6 +145,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --env-file .env
 | --- | --- | --- |
 | [osmdroid](https://github.com/osmdroid/osmdroid) 6.1.18 | 앱 지도 (`ble-app`) | Apache 2.0 |
 | OpenStreetMap 지도 타일 | 앱 지도 (`ble-app`) | © OpenStreetMap contributors (ODbL). 지도에 출처를 표시해야 합니다 |
+| [OSM 걷기 경로 서비스](https://routing.openstreetmap.de) (FOSSGIS, OSRM) | 앱 길 안내 선 (`ble-app`) | 무료, 키 불필요. 적게 쓰는 용도만 허용되어 앱에서 요청 간격을 제한합니다 (25m 이상 움직였을 때만, 5초 간격) |
 
 서버에서 쓰는 라이브러리는 `requirements.txt`에 있습니다.
 
