@@ -381,6 +381,26 @@ def test_out_of_range_reading_is_stored_but_ignored(client):
     assert spot["recent_average"]["count"] == 1
 
 
+def test_implausible_outdoor_temperatures_are_ignored(client):
+    """센서 칩이 낼 수는 있어도 캠퍼스 야외에서는 나올 수 없는 값(고장 난 센서)은 제외한다."""
+    now = int(time.time())
+    for offset, temperature in ((30, 73.0), (20, -50.0), (10, 46.0)):
+        assert client.post(
+            "/api/readings", json=reading(measured_at=now - offset, temperature=temperature, humidity=40.0)
+        ).status_code == 201
+    spot = client.get("/api/spots/1").json()
+    assert spot["latest_reading"]["temperature"] == 21.0  # 시드의 정상 값이 유지된다
+    assert spot["recent_average"]["count"] == 1
+
+
+def test_temperatures_at_the_edges_of_the_range_are_accepted(client):
+    now = int(time.time())
+    client.post("/api/readings", json=reading(measured_at=now - 10, temperature=45.0, humidity=40.0))
+    assert client.get("/api/spots/1").json()["latest_reading"]["temperature"] == 45.0
+    client.post("/api/readings", json=reading(measured_at=now - 5, temperature=-20.0, humidity=40.0))
+    assert client.get("/api/spots/1").json()["latest_reading"]["temperature"] == -20.0
+
+
 def test_sensor_with_only_out_of_range_values_is_invalid(client):
     register_sensor(99)
     now = int(time.time())

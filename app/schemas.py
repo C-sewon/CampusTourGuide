@@ -14,7 +14,7 @@ class ReadingIn(BaseModel):
         description="센서 MAC 주소. iOS 는 알 수 없어 생략할 수 있다",
     )
     measured_at: int = Field(ge=0, description="패킷의 측정 시각 (Unix 초)")
-    temperature: float = Field(description="℃. 물리적 범위(-40~85) 밖이면 저장은 하되 오류값으로 제외")
+    temperature: float = Field(description="℃. 현실적인 범위(-20~45) 밖이면 저장은 하되 오류값으로 제외")
     humidity: float = Field(description="%. 범위(0~100) 밖이면 저장은 하되 오류값으로 제외")
     aqi: int | None = Field(default=None, ge=0, le=255)
     tvoc: int | None = Field(default=None, ge=0, le=65535, description="ppb")

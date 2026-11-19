@@ -21,14 +21,16 @@ def test_is_valid_reading_rejects_only_all_zero():
 
 
 def test_is_valid_reading_rejects_out_of_range():
-    assert not processing.is_valid_reading(85.1, 50.0)
-    assert not processing.is_valid_reading(-40.1, 50.0)
+    assert not processing.is_valid_reading(45.1, 50.0)
+    assert not processing.is_valid_reading(-20.1, 50.0)
+    assert not processing.is_valid_reading(73.0, 50.0)  # 고장 난 센서(연구실 sensor 32)가 내던 값
+    assert not processing.is_valid_reading(-50.0, 50.0)  # 고장 난 센서(연구실 sensor 05, 09, 16)가 내던 값
     assert not processing.is_valid_reading(20.0, 100.1)
     assert not processing.is_valid_reading(20.0, -0.1)
     assert not processing.is_valid_reading(float("nan"), 50.0)
     # 경계값은 정상이다
-    assert processing.is_valid_reading(85.0, 100.0)
-    assert processing.is_valid_reading(-40.0, 0.0)
+    assert processing.is_valid_reading(45.0, 100.0)
+    assert processing.is_valid_reading(-20.0, 0.0)
 
 
 def test_is_valid_reading_without_humidity_checks_temperature_only():
