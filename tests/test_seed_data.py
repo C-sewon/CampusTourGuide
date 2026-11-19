@@ -1,9 +1,18 @@
-"""시드(장소, 코스) 데이터의 짜임새. 실제 장소를 넣을 때(#22) 실수를 잡아 준다.
+"""장소와 코스 데이터의 짜임새. 장소를 넣거나 고칠 때(#22) 실수를 잡아 준다.
 
-app/seed.py 의 SPOTS, COURSES 를 고친 뒤 이 테스트가 통과하는지 확인한다.
+개발용 샘플(app/seed.py)과 실제 투어 데이터(app/tour_data.py)를 같은 기준으로 확인한다.
+데이터를 고친 뒤 이 테스트가 통과하는지 확인한다.
 """
-from app import seed
+import pytest
+
+from app import seed, tour_data
 from tests.test_api import client  # noqa: F401  (client 는 pytest 픽스처)
+
+# (이름, 장소, 코스)
+DATASETS = [
+    pytest.param(seed.SPOTS, seed.COURSES, id="sample"),
+    pytest.param(tour_data.SPOTS, tour_data.COURSES, id="tour"),
+]
 
 
 def _sensor_ids():
@@ -14,27 +23,31 @@ def _explicit_coordinates(spot):
     return spot[4] if len(spot) > 4 else None
 
 
-def test_spot_names_are_unique_and_not_empty():
-    names = [s[0] for s in seed.SPOTS]
+@pytest.mark.parametrize("spots,courses", DATASETS)
+def test_spot_names_are_unique_and_not_empty(spots, courses):
+    names = [s[0] for s in spots]
     assert all(n.strip() for n in names)
     assert len(names) == len(set(names))
 
 
-def test_every_spot_links_only_to_registered_sensors():
-    for spot in seed.SPOTS:
+@pytest.mark.parametrize("spots,courses", DATASETS)
+def test_every_spot_links_only_to_registered_sensors(spots, courses):
+    for spot in spots:
         for sensor_id, _on_site in spot[3]:
             assert sensor_id in _sensor_ids(), f"{spot[0]}: 등록되지 않은 센서 {sensor_id}"
 
 
-def test_every_spot_has_a_way_to_show_a_temperature():
+@pytest.mark.parametrize("spots,courses", DATASETS)
+def test_every_spot_has_a_way_to_show_a_temperature(spots, courses):
     # 센서 연결도 좌표도 없으면 그 장소에는 온도가 나올 수 없다. (좌표가 있으면 가까운 센서를 찾는다)
-    for spot in seed.SPOTS:
+    for spot in spots:
         assert spot[3] or _explicit_coordinates(spot) is not None, f"{spot[0]}: 센서 연결도 좌표도 없음"
 
 
-def test_explicit_coordinates_look_like_the_campus():
+@pytest.mark.parametrize("spots,courses", DATASETS)
+def test_explicit_coordinates_look_like_the_campus(spots, courses):
     # 캠퍼스(청주) 근처인지만 본다. 위도와 경도를 바꿔 적는 실수를 잡는다
-    for spot in seed.SPOTS:
+    for spot in spots:
         coords = _explicit_coordinates(spot)
         if coords is None:
             continue
@@ -43,24 +56,27 @@ def test_explicit_coordinates_look_like_the_campus():
         assert 127.43 < lon < 127.48, f"{spot[0]}: 경도 {lon} 가 캠퍼스 근처가 아님 (위도와 바꿔 적었는지 확인)"
 
 
-def test_courses_refer_to_existing_spots_with_positive_minutes():
-    for name, _en, _desc, stops in seed.COURSES:
+@pytest.mark.parametrize("spots,courses", DATASETS)
+def test_courses_refer_to_existing_spots_with_positive_minutes(spots, courses):
+    for name, _en, _desc, stops in courses:
         assert stops, f"{name}: 장소가 없음"
         for spot_number, minutes in stops:
-            assert 1 <= spot_number <= len(seed.SPOTS), f"{name}: 없는 장소 번호 {spot_number}"
+            assert 1 <= spot_number <= len(spots), f"{name}: 없는 장소 번호 {spot_number}"
             assert minutes > 0, f"{name}: 소요시간이 0 이하"
         numbers = [n for n, _ in stops]
         assert len(numbers) == len(set(numbers)), f"{name}: 같은 장소가 두 번 들어 있음"
 
 
-def test_course_names_are_unique():
-    names = [c[0] for c in seed.COURSES]
+@pytest.mark.parametrize("spots,courses", DATASETS)
+def test_course_names_are_unique(spots, courses):
+    names = [c[0] for c in courses]
     assert len(names) == len(set(names))
 
 
-def test_there_are_a_short_and_a_long_course_for_the_recommendation():
+@pytest.mark.parametrize("spots,courses", DATASETS)
+def test_there_are_a_short_and_a_long_course_for_the_recommendation(spots, courses):
     # 코스 추천은 가장 짧은 코스와 가장 긴 코스 중에서 고른다. 모두 같은 길이면 추천이 의미가 없다.
-    totals = [sum(m for _, m in c[3]) for c in seed.COURSES]
+    totals = [sum(m for _, m in c[3]) for c in courses]
     assert len(totals) >= 2
     assert min(totals) < max(totals)
 
