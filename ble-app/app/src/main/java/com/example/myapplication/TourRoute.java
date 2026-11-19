@@ -53,9 +53,12 @@ public final class TourRoute {
         void onRoute(Route route);
     }
 
-    /** 요청 주소. 서비스는 경도,위도 순서를 받는다 */
+    /**
+     * 요청 주소. 서비스는 경도,위도 순서를 받는다.
+     * 출발점(내 위치)은 소수점 4자리(약 10m)로 줄여 보내서 정확한 위치를 덜 알린다. 도착점은 장소 좌표라 그대로 보낸다.
+     */
     static String url(double fromLat, double fromLon, double toLat, double toLon) {
-        return String.format(Locale.ROOT, "%s%.6f,%.6f;%.6f,%.6f?overview=full&geometries=geojson",
+        return String.format(Locale.ROOT, "%s%.4f,%.4f;%.6f,%.6f?overview=full&geometries=geojson",
                 BASE, fromLon, fromLat, toLon, toLat);
     }
 

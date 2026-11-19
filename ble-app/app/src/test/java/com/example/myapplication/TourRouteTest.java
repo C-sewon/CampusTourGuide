@@ -9,8 +9,9 @@ public class TourRouteTest {
 
     @Test
     public void url_lonLatOrder() {
+        // 출발점(내 위치)은 소수점 4자리로 줄이고, 도착점(장소)은 6자리 그대로
         assertEquals("https://routing.openstreetmap.de/routed-foot/route/v1/driving/"
-                        + "127.457839,36.628895;127.454222,36.630931?overview=full&geometries=geojson",
+                        + "127.4578,36.6289;127.454222,36.630931?overview=full&geometries=geojson",
                 TourRoute.url(36.628895, 127.457839, 36.630931, 127.454222));
     }
 
