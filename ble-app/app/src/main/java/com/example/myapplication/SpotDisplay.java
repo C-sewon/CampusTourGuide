@@ -85,6 +85,16 @@ public final class SpotDisplay {
         return String.format(Locale.ROOT, "남은 거리 약 %.1fkm", meters / 1000.0);
     }
 
+    /**
+     * 걷는 길 경로가 있을 때 남은 거리와 도보 시간. 예: "남은 거리 약 400m · 도보 약 5분".
+     * 20m 안이면 "거의 다 왔어요".
+     */
+    public static String routeDistance(double meters, double durationSec) {
+        if (meters < 20) return "거의 다 왔어요";
+        long minutes = Math.max(1, Math.round(durationSec / 60.0));
+        return distance(meters) + " · 도보 약 " + minutes + "분";
+    }
+
     /** 다음 버튼. 마지막 장소면 투어를 마친다 */
     public static String nextLabel(boolean isLast) {
         return isLast ? "투어 마치기" : "다음 장소로";
