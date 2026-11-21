@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from . import config, lab_sync, models, processing, recommend, schemas
+from . import config, lab_sync, models, processing, recommend, schemas, tour_data
 from .database import Base, engine, ensure_current_schema, get_db
 from .seed import seed_if_empty
 
@@ -23,7 +23,9 @@ async def _lab_sync_loop():
 async def lifespan(app: FastAPI):
     ensure_current_schema()
     Base.metadata.create_all(engine)
-    seed_if_empty(sample_readings=not config.LAB_SYNC_ENABLED)
+    seed_if_empty(
+        sample_readings=not config.LAB_SYNC_ENABLED, spots=tour_data.SPOTS, courses=tour_data.COURSES
+    )
     task = asyncio.create_task(_lab_sync_loop()) if config.LAB_SYNC_ENABLED else None
     yield
     if task is not None:
