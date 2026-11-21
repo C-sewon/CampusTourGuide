@@ -49,8 +49,9 @@ import retrofit2.Response;
  * 장소 안내 화면 (프로토타입 "장소 안내", 설계 문서 4장 "장소 카드 화면").
  * 코스의 장소를 하나씩 보여준다: 도착 배너, 이름, 방문 상태, 지금 온도와 출처·측정 시각, 소개, 다음 장소.
  *
- * 도착은 지금은 "도착" 버튼으로만 체크한다.
- * BLE 자동 도착은 지유님 스캔 기능이 "센서 N 도착"을 알려주면 onSensorArrived(N) 을 부르도록 연결할 예정이다.
+ * 도착은 "도착" 버튼과 BLE 자동 도착 두 가지로 체크한다.
+ * BLE 자동 도착은 TourScanner가 "센서 N 도착"을 받아 그 센서가 설치된 장소를 TourProgress에 기록하고,
+ * 이 화면은 scanListener로 알림을 받아 다시 그린다. 안내 중인 장소가 아니어도 기록된다. (#29, #37)
  */
 public class SpotActivity extends AppCompatActivity {
 
@@ -107,6 +108,14 @@ public class SpotActivity extends AppCompatActivity {
     private HomeApi api;
     private HomeApi.Course course;
     private int index = -1;
+
+    /** BLE 자동 도착 (#29, 황지유). 어느 장소든 새로 도착이 기록되면 화면을 다시 그린다 */
+    private final TourScanner.Listener scanListener = new TourScanner.Listener() {
+        @Override
+        public void onSpotArrived(int spotId, int sensorId) {
+            if (course != null) show();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -171,10 +180,27 @@ public class SpotActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        TourScanner scanner = TourScanner.get(this);
+        scanner.addListener(scanListener);
+        scanner.acquire();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        TourScanner scanner = TourScanner.get(this);
+        scanner.release();
+        scanner.removeListener(scanListener);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         mapView.onResume();
         startLocationUpdates();
+        TourScanner.get(this).refresh();
     }
 
     @Override
@@ -212,6 +238,7 @@ public class SpotActivity extends AppCompatActivity {
     private void load(int courseId) {
         api = TourServer.api(this);
         if (api == null) {
+            ArrivalRouter.update(TourSamples.courses()); // 센서 N 도착 → 장소 (#29)
             setCourse(TourSamples.course(courseId));
             return;
         }
@@ -222,6 +249,7 @@ public class SpotActivity extends AppCompatActivity {
                 if (isFinishing() || isDestroyed() || requestApi != api) return;
                 HomeApi.Course found = null;
                 if (res.isSuccessful() && res.body() != null) {
+                    ArrivalRouter.update(res.body()); // 센서 N 도착 → 장소 (#29)
                     for (HomeApi.Course c : res.body()) if (c.id == courseId) found = c;
                 }
                 setCourse(found);
@@ -615,19 +643,12 @@ public class SpotActivity extends AppCompatActivity {
     }
 
     /**
-     * BLE 자동 도착 연결 자리. 지유님 스캔 기능이 "센서 N 도착"을 알려주면 부른다.
-     * 지금 안내 중인 장소에 설치된 센서면 도착으로 체크한다.
+     * "센서 N 도착"을 도착으로 기록한다. (#29, #37)
+     * 지금 안내 중인 장소가 아니어도, 그 센서가 설치된 모든 장소를 기록한다. (TourScanner.recordSensorArrival)
+     * 실제 자동 도착은 TourScanner가 직접 기록하고 scanListener로 알려 주므로, 이 메서드는 직접 부를 때(시험 등)만 쓴다.
      */
     public void onSensorArrived(int sensorId) {
-        if (course == null) return;
-        HomeApi.Spot spot = course.spots.get(index).spot;
-        if (spot.arrival == null || spot.arrival.sensors == null) return;
-        for (HomeApi.SpotSensor s : spot.arrival.sensors) {
-            if (s.sensorId == sensorId) {
-                markArrived(false);
-                return;
-            }
-        }
+        TourScanner.get(this).recordSensorArrival(sensorId);
     }
 
     private void move(int delta) {

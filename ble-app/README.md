@@ -23,15 +23,17 @@ Android Studio에서 프로젝트를 열고 Gradle Sync 후 실행하거나, 터
 
 ## 3. 최초 실행 시 권한 허용
 
-앱 실행 시 아래 권한 요청 다이얼로그가 뜹니다. **모두 허용**해야 정상 동작합니다.
+앱을 처음 실행하면 홈 화면에서 아래 권한을 묻습니다. **모두 허용**해야 자동 도착이 동작합니다.
 
 - 블루투스 스캔 / 연결 (Android 12 이상)
 - 위치(정밀 위치, `ACCESS_FINE_LOCATION`)
 
-권한을 거부하면 "블루투스/위치 권한이 없으면 스캔할 수 없습니다" 토스트가 뜨고 스캔이 시작되지 않습니다.
-설정 > 앱 > 권한에서 나중에 허용해도 앱을 재실행하면 정상 동작합니다.
+권한을 거부하면 홈의 "자동 감지" 칩이 "권한이 필요해요"로 바뀝니다. 칩을 누르면 다시 묻습니다.
+블루투스가 꺼져 있으면 칩이 "블루투스를 켜 주세요"로 바뀌고, 누르면 블루투스 설정이 열립니다.
 
 ## 4. 화면 구성 및 사용법
+
+앱의 첫 화면은 **홈(투어)** 입니다. 아래 버튼이 있는 화면은 **개발용 "센서 로그" 화면**(`MainActivity`)이고, 홈의 "자동 감지" 칩을 **길게 누르면** 열립니다. (11번 참고)
 
 | 버튼 | 동작 |
 |---|---|
@@ -91,17 +93,18 @@ GET http://203.255.81.72:10021/sensor/sensing/?mac=...&sensor=sensor 07&sender=.
 
 ## 6. 문제 해결(트러블슈팅)
 
-- **로그에 아무것도 안 뜬다**: 센서가 광고하는 실제 기기명이 `opensrc1`~`opensrc5`와 정확히 일치하는지 확인하세요(대소문자/공백 포함 한 글자라도 다르면 무시됩니다). `MainActivity.java`의 `TARGET_NAMES` 참고.
+- **로그에 아무것도 안 뜬다**: 센서가 광고하는 실제 기기명이 `opensrc1`~`opensrc5`와 정확히 일치하는지 확인하세요(대소문자/공백 포함 한 글자라도 다르면 무시됩니다). `Sensors.java`의 센서 목록 참고.
 - **스캔을 눌러도 아무 기기도 잡히지 않는다**: 위치 권한이 허용되어 있는지, 위치 서비스가 켜져 있는지 확인하세요. 안드로이드는 위치가 꺼져 있으면 BLE 스캔 결과를 주지 않을 수 있습니다.
-- **블루투스가 꺼져 있다는 토스트**: 기기 블루투스를 켜고 "스캔 시작"을 다시 누르세요.
+- **"블루투스를 켜 주세요"가 뜬다**: 홈의 "자동 감지" 칩을 눌러 블루투스를 켜고 돌아오면 스캔이 다시 시작됩니다.
 
-## 7. 설정값 (MainActivity.java 상단)
+## 7. 설정값
 
-| 상수 | 설명 |
-|---|---|
-| `TARGET_NAMES` | 수집 대상 센서 기기명 목록 |
-| `UPLOAD_INTERVAL_MS` | 센서별 업로드 최소 간격(기본 10초) |
-| `AUTO_UPLOAD` | `false`로 바꾸면 자동 업로드를 끄고 수동 전송만 사용 |
+| 위치 | 상수 | 설명 |
+|---|---|---|
+| `Sensors.java` | `ALL` | 수집 대상 센서 5대 (번호, BLE 이름, 연구실 이름, MAC) |
+| `LabUploader.java` | `UPLOAD_INTERVAL_MS` | 센서별 업로드 최소 간격(기본 10초) |
+| `ScanLease.java` | `GRACE_MS` | 화면을 넘길 때 스캔을 바로 끄지 않고 기다리는 시간(기본 3초) |
+| `ArrivalDetector.java` | `ARRIVE_RSSI`, `LEAVE_RSSI` | 도착(-70 dBm)과 떠남(-80 dBm) 기준 |
 
 ## 8. 도착 판정
 
@@ -147,3 +150,36 @@ Android 빌드 도구는 경로에 한글 등 ASCII가 아닌 문자가 있으�
 |---|---|
 | `UploadQueue.java` | 재전송 큐. Android 기능을 쓰지 않아 다른 앱 프로젝트로 그대로 옮길 수 있음 |
 | `UploadQueueTest.java` | 재전송 큐 단위 테스트 (`./gradlew testDebugUnitTest`) |
+
+## 11. 투어 화면과 BLE 연결 (#29)
+
+스캔, 도착 판정, 업로드는 앱 전체에서 하나만 도는 `TourScanner`가 맡습니다. 투어 화면(홈, 코스 둘러보기, 장소 안내)이 켜져 있으면 스캔하고, 앱이 뒤로 가면 3초 뒤 멈춥니다.
+
+| 파일 | 역할 |
+|---|---|
+| `TourScanner.java` | 앱 전체 BLE 스캐너. 센서 거르기, 13바이트 읽기, 도착 판정, 업로드. 화면은 `Listener`로 알림을 받음 |
+| `ScanLease.java` | 스캔을 켜고 끄는 시점. 화면을 넘길 때 3초 동안 끄지 않음 (안드로이드는 30초 안에 스캔을 5번 넘게 시작하면 막아 버림) |
+| `ArrivalRouter.java` | "센서 N 도착" → 그 센서가 설치된 모든 장소. 서버 코스 데이터의 `arrival.sensors`를 씀 |
+| `LabUploader.java` | 연구실 2번 API 업로드 (예전에는 `MainActivity` 안에 있었음) |
+| `ScanState.java` | 스캔 상태와 홈 "자동 감지" 칩 문구 |
+
+### 도착 기록 (#37)
+- 센서가 감지되면 그 센서가 설치된 **모든 장소**를 `TourProgress`에 자동 도착으로 기록합니다. 지금 안내 중인 장소가 아니어도 기록합니다.
+- 같은 장소는 한 번만 기록됩니다. 도착 판정은 머무는 동안 한 번만 알리고(`ArrivalDetector`), 이미 기록된 장소는 `TourProgress`가 무시합니다.
+- 새로 기록된 장소는 `TourScanner.Listener.onSpotArrived(spotId, sensorId)`로 알립니다. 카드를 띄울지는 화면이 정합니다. (`has_card`)
+
+### 화면에서 쓰는 방법
+```java
+@Override protected void onStart() { super.onStart(); TourScanner.get(this).addListener(listener); TourScanner.get(this).acquire(); }
+@Override protected void onStop()  { super.onStop();  TourScanner.get(this).release(); TourScanner.get(this).removeListener(listener); }
+```
+
+### 홈 "자동 감지" 칩
+| 문구 | 상태 | 칩을 누르면 |
+|---|---|---|
+| 자동 감지 켜짐 | 스캔 중 | - |
+| 권한이 필요해요 | 블루투스·위치 권한 없음 | 권한을 다시 물음 |
+| 블루투스를 켜 주세요 | 블루투스 꺼짐 | 블루투스 설정을 엶 |
+| 자동 감지 꺼짐 / 오류 | 스캔 멈춤 / 시작 실패 | - |
+
+칩을 **길게 누르면** 개발용 센서 로그 화면(`MainActivity`)이 열립니다.
