@@ -24,7 +24,10 @@ async def lifespan(app: FastAPI):
     ensure_current_schema()
     Base.metadata.create_all(engine)
     seed_if_empty(
-        sample_readings=not config.LAB_SYNC_ENABLED, spots=tour_data.SPOTS, courses=tour_data.COURSES
+        sample_readings=not config.LAB_SYNC_ENABLED,
+        spots=tour_data.SPOTS,
+        courses=tour_data.COURSES,
+        card_spots=tour_data.CARD_SPOTS,
     )
     task = asyncio.create_task(_lab_sync_loop()) if config.LAB_SYNC_ENABLED else None
     yield
@@ -238,6 +241,7 @@ def _spot_out(db: Session, s: models.Spot) -> schemas.SpotOut:
         description_en=s.description_en,
         latitude=s.latitude,
         longitude=s.longitude,
+        has_card=s.has_card,
         arrival=schemas.ArrivalOut(
             method="ble_auto" if on_site else "manual",
             sensors=[
@@ -421,6 +425,7 @@ def list_courses(db: Session = Depends(get_db)):
             name=c.name,
             name_en=c.name_en,
             description=c.description,
+            is_core=c.is_core,
             total_minutes=sum(cs.minutes for cs in c.stops),
             spots=[
                 schemas.CourseSpotOut(
