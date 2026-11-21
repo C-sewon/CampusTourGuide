@@ -411,6 +411,14 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // 2번 API에는 습도 칸이 없어서 서버가 센서 오류값(0.0/0.0 등)을 걸러낼 수 없으므로 앱에서 거른다.
+        // "전송" 버튼으로 보내는 수동 전송도 이 함수를 거친다.
+        String reject = ReadingCheck.rejectReason(packet.temperature, packet.humidity);
+        if (reject != null) {
+            tvLog.append("\n[전송 안 함] " + reject + " " + deviceName);
+            return;
+        }
+
         String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
 
         SensorRequest request = new SensorRequest(
@@ -439,18 +447,26 @@ public class MainActivity extends AppCompatActivity {
         ApiService.send(apiService, request).enqueue(new Callback<ApiService.SensingResponse>() {
             @Override
             public void onResponse(Call<ApiService.SensingResponse> call, Response<ApiService.SensingResponse> response) {
-                UploadQueue.Result result = UploadQueue.classify(response.code());
+                // 응답 처리 중 예상 밖의 예외가 나도 done을 반드시 한 번 불러야 큐가 멈추지 않는다. (PR #25 리뷰)
+                // done 호출은 try 밖에 두어, 큐 쪽에서 난 예외 때문에 done이 두 번 불리지 않게 한다.
+                UploadQueue.Result result;
                 String detail;
-                if (response.isSuccessful() && response.body() != null) {
-                    detail = response.body().toString();
-                } else {
-                    String errorDetail;
-                    try {
-                        errorDetail = response.errorBody() != null ? response.errorBody().string() : "(본문 없음)";
-                    } catch (IOException e) {
-                        errorDetail = "(에러 본문 읽기 실패: " + e.getMessage() + ")";
+                try {
+                    result = UploadQueue.classify(response.code());
+                    if (response.isSuccessful() && response.body() != null) {
+                        detail = response.body().toString();
+                    } else {
+                        String errorDetail;
+                        try {
+                            errorDetail = response.errorBody() != null ? response.errorBody().string() : "(본문 없음)";
+                        } catch (IOException e) {
+                            errorDetail = "(에러 본문 읽기 실패: " + e.getMessage() + ")";
+                        }
+                        detail = "HTTP " + response.code() + " - " + errorDetail;
                     }
-                    detail = "HTTP " + response.code() + " - " + errorDetail;
+                } catch (RuntimeException e) {
+                    result = UploadQueue.Result.RETRY;
+                    detail = "응답 처리 오류: " + e;
                 }
                 done.onResult(result, detail);
             }
