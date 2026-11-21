@@ -24,7 +24,7 @@ public class UploadQueueTest {
 
         @Override
         public void send(SensorRequest request, UploadQueue.Done done) {
-            sent.add(request.getSensor() + "@" + request.getTimestamp());
+            sent.add(request.getBleName() + "@" + request.getTimestamp());
             if (holdNext) {
                 holdNext = false;
                 pending = done;
@@ -43,8 +43,8 @@ public class UploadQueueTest {
 
     private final List<String> log = new ArrayList<>();
     private final UploadQueue.Listener listener = new UploadQueue.Listener() {
-        @Override public void onSent(SensorRequest r, String d) { log.add("sent " + r.getSensor()); }
-        @Override public void onDropped(SensorRequest r, String d) { log.add("dropped " + r.getSensor()); }
+        @Override public void onSent(SensorRequest r, String d) { log.add("sent " + r.getBleName()); }
+        @Override public void onDropped(SensorRequest r, String d) { log.add("dropped " + r.getBleName()); }
         @Override public void onRetryScheduled(int q, long delay, String d) { log.add("retry " + q + " " + delay); }
     };
 
@@ -62,7 +62,7 @@ public class UploadQueueTest {
     }
 
     private static SensorRequest req(String sensor, long ts) {
-        return new SensorRequest("k", sensor, "mac", 20.0, 40.0, 1, 2, 3, ts, 36.6, 127.4, "s", -60);
+        return new SensorRequest(sensor, "sensor 07", "88:A2:9E:9B:5F:09", "phone", 20.0, 600, ts, -60);
     }
 
     @Test

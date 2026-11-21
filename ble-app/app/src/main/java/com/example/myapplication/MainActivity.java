@@ -20,12 +20,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.Priority;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -50,8 +44,6 @@ public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_CODE_S = 101;
     private static final int PERMISSION_REQUEST_CODE = 100;
 
-    private static final int TEAM_NO = 1;
-    private static final String TEAM_KEY = "opensrc-team1";
     private static final Set<String> TARGET_NAMES = new HashSet<>(Arrays.asList(
             "opensrc1", "opensrc2", "opensrc3", "opensrc4", "opensrc5"));
 
@@ -64,12 +56,6 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter blead;
     private BluetoothLeScanner bluetoothLeScanner;
     private TextView tvLog;
-
-    private FusedLocationProviderClient fusedLocationClient;
-    private LocationCallback locationCallback;
-    private volatile double curLat = 0.0;
-    private volatile double curLon = 0.0;
-    private volatile boolean hasLocation = false;
 
     // 버튼을 누를 때까지 데이터를 임시로 모아둘 리스트
     private List<String> pendingCsvData = new ArrayList<>();
@@ -129,24 +115,29 @@ public class MainActivity extends AppCompatActivity {
 
         Gson gson = new GsonBuilder().setLenient().create();
         retrofit = new Retrofit.Builder()
-                .baseUrl("http://203.255.81.72:10021/") // ★수정: API 슬라이드 기준 주소/포트로 변경 (기존 10.255.81.72:10024)
+                .baseUrl("http://203.255.81.72:10021/") // 연구실 서버 (센서 공용 API)
                 .addConverterFactory(ScalarsConverterFactory.create())
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build();
 
+        // 예전(중간평가 업로드 API) 형식으로 저장된 큐는 새 API로 보낼 수 없으므로 지운다
+        File oldQueue = new File(getFilesDir(), "upload_queue.json");
+        if (oldQueue.exists() && oldQueue.delete()) {
+            tvLog.append("\n[알림] 예전 형식의 재전송 대기 값을 정리했습니다");
+        }
         uploadQueue = new UploadQueue(
                 this::sendToLabServer,
-                new UploadQueue.FileStore(new File(getFilesDir(), "upload_queue.json")),
+                new UploadQueue.FileStore(new File(getFilesDir(), "upload_queue_v2.json")),
                 System::currentTimeMillis,
                 new UploadQueue.Listener() {
                     @Override
                     public void onSent(SensorRequest r, String detail) {
-                        tvLog.append("\n[서버 응답: 정상] " + r.getSensor() + " RSSI " + r.getRssi() + " - " + detail);
+                        tvLog.append("\n[서버 응답: 정상] " + r.getBleName() + "(" + r.getLabName() + ") RSSI " + r.getRssi() + " - " + detail);
                     }
 
                     @Override
                     public void onDropped(SensorRequest r, String reason) {
-                        tvLog.append("\n[전송 포기] " + r.getSensor() + " - " + reason);
+                        tvLog.append("\n[전송 포기] " + r.getBleName() + " - " + reason);
                     }
 
                     @Override
@@ -161,9 +152,6 @@ public class MainActivity extends AppCompatActivity {
 
         // 권한 체크 및 초기화
         bleInitialize(this);
-
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        startLocationUpdates();
 
         initBluetoothLeScanner();
 
@@ -189,54 +177,13 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         // 블루투스를 앱 실행 후에 켰거나 권한을 뒤늦게 허용한 경우를 대비해 재확인
         initBluetoothLeScanner();
-        startLocationUpdates();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        stopLocationUpdates();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        stopLocationUpdates();
         tickHandler.removeCallbacks(arrivalTick);
         tickHandler.removeCallbacks(uploadFlushTick);
-    }
-
-    private void startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-        if (fusedLocationClient == null) {
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        }
-        if (locationCallback != null) {
-            // 이미 등록되어 있으면 중복 등록하지 않음
-            return;
-        }
-        locationCallback = new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult result) {
-                if (result == null) return;
-                android.location.Location location = result.getLastLocation();
-                if (location == null) return;
-                curLat = location.getLatitude();
-                curLon = location.getLongitude();
-                hasLocation = true;
-            }
-        };
-        LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build();
-        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-    }
-
-    private void stopLocationUpdates() {
-        if (fusedLocationClient != null && locationCallback != null) {
-            fusedLocationClient.removeLocationUpdates(locationCallback);
-        }
-        locationCallback = null;
     }
 
     private void initBluetoothLeScanner() {
@@ -266,7 +213,6 @@ public class MainActivity extends AppCompatActivity {
 
         if (allGranted) {
             initBluetoothLeScanner();
-            startLocationUpdates();
         } else {
             Toast.makeText(this, "블루투스/위치 권한이 없으면 스캔할 수 없습니다.", Toast.LENGTH_LONG).show();
         }
@@ -458,26 +404,31 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void sendDataToServer(SensorPacket packet, String mac, int rssi, String deviceName) {
-        if (!hasLocation || (curLat == 0.0 && curLon == 0.0)) {
-            tvLog.append("\n[위치 미수신] 야외에서 잠시 대기");
+        // 연구실 서버에는 BLE 이름이 아니라 연구실 이름(sensor 07 등)으로 보낸다
+        Sensors.Sensor sensor = Sensors.find(deviceName, mac);
+        if (sensor == null) {
+            tvLog.append("\n[전송 안 함] 등록되지 않은 센서 " + deviceName);
+            return;
+        }
+
+        // 2번 API에는 습도 칸이 없어서 서버가 센서 오류값(0.0/0.0 등)을 걸러낼 수 없으므로 앱에서 거른다.
+        // "전송" 버튼으로 보내는 수동 전송도 이 함수를 거친다.
+        String reject = ReadingCheck.rejectReason(packet.temperature, packet.humidity);
+        if (reject != null) {
+            tvLog.append("\n[전송 안 함] " + reject + " " + deviceName);
             return;
         }
 
         String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
 
         SensorRequest request = new SensorRequest(
-                TEAM_KEY,           // key
-                deviceName,         // sensor - 센서 이름 (opensrc1~opensrc5)
-                mac,                // mac - 실제 센서 맥주소
-                packet.temperature,
-                packet.humidity,
-                packet.aqi,
-                packet.tvoc,
-                packet.eco2,
-                packet.timestamp,
-                curLat,
-                curLon,
-                deviceId,           // sender
+                deviceName,                                   // 로그·중복 확인용 BLE 이름
+                sensor.labName,                               // sensor: 연구실 이름
+                mac,                                          // mac: 폰에서 보이는 센서 주소
+                deviceId,                                     // sender: 스마트폰 ID
+                Math.round(packet.temperature * 100) / 100.0, // temp: ℃ (float 오차 제거)
+                packet.eco2,                                  // co2: 오픈소스 센서는 eCO2
+                packet.timestamp,                             // time: 측정 시각 (Unix 초)
                 rssi
         );
 
@@ -490,33 +441,38 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /** 재전송 큐가 실제로 연구실(수업) 서버에 보낼 때 쓰는 함수 */
+    /** 재전송 큐가 실제로 연구실 서버(2번 API)에 보낼 때 쓰는 함수 */
     private void sendToLabServer(SensorRequest request, UploadQueue.Done done) {
         ApiService apiService = retrofit.create(ApiService.class);
-        apiService.sendSensorData(request).enqueue(new Callback<SensorResponse>() {
+        ApiService.send(apiService, request).enqueue(new Callback<ApiService.SensingResponse>() {
             @Override
-            public void onResponse(Call<SensorResponse> call, Response<SensorResponse> response) {
-                UploadQueue.Result result = UploadQueue.classify(response.code());
+            public void onResponse(Call<ApiService.SensingResponse> call, Response<ApiService.SensingResponse> response) {
+                // 응답 처리 중 예상 밖의 예외가 나도 done을 반드시 한 번 불러야 큐가 멈추지 않는다. (PR #25 리뷰)
+                // done 호출은 try 밖에 두어, 큐 쪽에서 난 예외 때문에 done이 두 번 불리지 않게 한다.
+                UploadQueue.Result result;
                 String detail;
-                if (response.isSuccessful() && response.body() != null) {
-                    SensorResponse body = response.body();
-                    String status = body.getStatus();
-                    String label = "out_of_range".equals(status) ? "범위 초과" : String.valueOf(status);
-                    detail = label + " - " + body.getResult() + " - " + body.getMessage();
-                } else {
-                    String errorDetail;
-                    try {
-                        errorDetail = response.errorBody() != null ? response.errorBody().string() : "(본문 없음)";
-                    } catch (IOException e) {
-                        errorDetail = "(에러 본문 읽기 실패: " + e.getMessage() + ")";
+                try {
+                    result = UploadQueue.classify(response.code());
+                    if (response.isSuccessful() && response.body() != null) {
+                        detail = response.body().toString();
+                    } else {
+                        String errorDetail;
+                        try {
+                            errorDetail = response.errorBody() != null ? response.errorBody().string() : "(본문 없음)";
+                        } catch (IOException e) {
+                            errorDetail = "(에러 본문 읽기 실패: " + e.getMessage() + ")";
+                        }
+                        detail = "HTTP " + response.code() + " - " + errorDetail;
                     }
-                    detail = "HTTP " + response.code() + " - " + errorDetail;
+                } catch (RuntimeException e) {
+                    result = UploadQueue.Result.RETRY;
+                    detail = "응답 처리 오류: " + e;
                 }
                 done.onResult(result, detail);
             }
 
             @Override
-            public void onFailure(Call<SensorResponse> call, Throwable t) {
+            public void onFailure(Call<ApiService.SensingResponse> call, Throwable t) {
                 // 응답을 못 받음 (네트워크 끊김, 시간 초과 등) → 나중에 다시 보냄
                 done.onResult(UploadQueue.Result.RETRY, "전송 실패: " + t.getMessage());
             }
