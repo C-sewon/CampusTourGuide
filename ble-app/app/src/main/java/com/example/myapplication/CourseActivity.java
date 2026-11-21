@@ -80,6 +80,19 @@ public class CourseActivity extends AppCompatActivity {
         if (courses != null) render();
     }
 
+    // BLE 자동 도착 (#29, 황지유): 코스를 둘러보는 동안에도 스캔을 이어 간다
+    @Override
+    protected void onStart() {
+        super.onStart();
+        TourScanner.get(this).acquire();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        TourScanner.get(this).release();
+    }
+
     // ---------- 데이터 불러오기 ----------
 
     private void load() {
