@@ -36,6 +36,8 @@ class Spot(Base):
     description_en: Mapped[str | None] = mapped_column(Text)
     latitude: Mapped[float | None] = mapped_column(Float)
     longitude: Mapped[float | None] = mapped_column(Float)
+    # 이 장소에 도착하면 앱이 카드를 띄우는지(#37). 핵심 코스의 장소와 몇몇 대표 장소가 true 이다
+    has_card: Mapped[bool] = mapped_column(Boolean, default=False)
 
     sensor_links: Mapped[list["SpotSensor"]] = relationship(
         order_by="SpotSensor.priority", cascade="all, delete-orphan"

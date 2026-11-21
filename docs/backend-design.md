@@ -121,7 +121,7 @@ erDiagram
 | --- | --- | --- |
 | `sensors` | 캠퍼스 센서. 우리 팀 오픈소스 센서 5대(`opensrc`)와 연구실 센서(`lab`) | `ble_name`, `mac`, `lab_name`은 각각 유일. 연구실 센서는 연구실 API에서 위치가 있는 것을 **자동 등록** |
 | `readings` | 센서 측정값 | **(`sensor_id`, `measured_at`)이 유일** → 같은 값이 다시 와도 한 번만 저장(재전송에 안전). `sensor_id`는 `sensors.id`를 가리키지만 DB 외래키 제약은 걸지 않음 |
-| `spots` | 투어 장소 | `latitude`, `longitude`는 가까운 센서를 찾을 때 쓰므로 없으면 센서를 빌리지 못함 |
+| `spots` | 투어 장소 | `latitude`, `longitude`는 가까운 센서를 찾을 때 쓰므로 없으면 센서를 빌리지 못함. `has_card`는 도착하면 앱이 카드를 띄우는 장소 표시 |
 | `spot_sensors` | 장소와 센서의 연결 (다대다) | 장소 하나가 센서를 여러 개 쓰고(우선순위 순), 센서 하나를 여러 장소가 쓸 수 있음. (`spot_id`, `sensor_id`)가 유일 |
 | `courses` | 투어 코스 | `is_core`는 핵심 코스 여부. 핵심 코스는 하나만 두고, 앱의 핵심 코스 카드가 이 코스의 장소를 씀 |
 | `course_spots` | 코스와 장소의 연결 (다대다) | (`course_id`, `position`)이 유일. 코스 총 소요시간은 `minutes`의 합 |
@@ -201,6 +201,7 @@ flowchart TD
 | --- | --- |
 | `id`, `name`, `name_en`, `description`, `description_en` | 장소 정보 (영어는 없으면 `null`) |
 | `latitude`, `longitude` | 장소 좌표. 모르면 `null` |
+| `has_card` | 이 장소에 도착하면 앱이 카드를 띄우는지(#37). 핵심 코스의 장소는 모두 `true`이고, 개신문화관, 박물관, 야외공연장도 `true`. 핵심 코스 장소의 카드에는 "핵심 코스 N곳 중 M곳 방문"을, 그 밖의 장소는 장소 소개를 보여 주는 것은 앱이 정함 |
 | `arrival.method` | `ble_auto`: 장소에 설치된 센서가 있어 BLE로 도착을 자동 판정(수동 버튼은 보조). `manual`: 센서가 없어 방문객이 "도착" 버튼으로 체크 |
 | `arrival.sensors` | 도착 판정에 쓰는, 이 장소에 설치된 센서(`sensor_id`, `ble_name`, `mac`, `location`). `manual`이면 빈 목록. 앱이 스캔한 센서가 이 목록에 있으면 이 장소에 도착한 것 |
 | `latest_reading` | 현재 온도. 값이 없으면 `null` |
@@ -222,6 +223,7 @@ flowchart TD
   "description_en": null,
   "latitude": 36.6306005,
   "longitude": 127.455014,
+  "has_card": false,
   "arrival": {
     "method": "ble_auto",
     "sensors": [

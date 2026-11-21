@@ -40,7 +40,7 @@ def ensure_current_schema(bind=None) -> None:
             problems.append("readings")
     if inspector.has_table("spots"):
         columns = {c["name"] for c in inspector.get_columns("spots")}
-        if "sensor_id" in columns:  # 장소가 센서를 하나만 쓰던 예전 구조
+        if "sensor_id" in columns or "has_card" not in columns:  # 센서를 하나만 쓰던 구조, 또는 카드 표시가 생기기 전 구조
             problems.append("spots")
     if inspector.has_table("sensors"):
         columns = {c["name"] for c in inspector.get_columns("sensors")}

@@ -92,11 +92,12 @@ def _seed_sensors(db) -> None:
     db.commit()
 
 
-def seed_if_empty(sample_readings: bool = True, spots=None, courses=None) -> None:
+def seed_if_empty(sample_readings: bool = True, spots=None, courses=None, card_spots=None) -> None:
     """센서, 장소와 코스를 넣는다. DB 가 비어 있을 때만 장소와 코스가 들어간다.
 
     spots, courses: 넣을 장소와 코스. 주지 않으면 이 파일의 개발용 샘플(SPOTS, COURSES)을 넣는다.
     서버는 실제 투어 데이터(app/tour_data.py)를 넘겨서 켠다.
+    card_spots: 도착하면 앱이 카드를 띄우는 장소의 이름 모음. 주지 않으면 어느 장소에도 카드가 없다.
 
     sample_readings: 센서마다 샘플 측정값 1건을 넣는다. 연구실 연동이 켜져 있으면 실제 값이 들어오므로
     샘플 값이 실제 값처럼 보이지 않게 끈다. (테스트와 연동을 끈 오프라인 개발에서는 켠다)
@@ -117,6 +118,7 @@ def seed_if_empty(sample_readings: bool = True, spots=None, courses=None) -> Non
                     description=d,
                     latitude=lat,
                     longitude=lon,
+                    has_card=n in (card_spots or ()),
                     sensor_links=[
                         models.SpotSensor(sensor_id=sid, priority=i, on_site=on_site)
                         for i, (sid, on_site) in enumerate(links, start=1)

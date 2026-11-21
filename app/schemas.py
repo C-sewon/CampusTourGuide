@@ -115,6 +115,9 @@ class SpotOut(BaseModel):
     description_en: str | None
     latitude: float | None
     longitude: float | None
+    has_card: bool = Field(
+        description="이 장소에 도착하면 앱이 카드를 띄우는지. 핵심 코스의 장소는 모두 true 이고, 그 밖의 대표 장소도 true 일 수 있다"
+    )
     arrival: ArrivalOut
     latest_reading: ReadingOut | None
     recent_average: AverageOut | None = Field(
