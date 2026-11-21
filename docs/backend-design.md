@@ -123,7 +123,7 @@ erDiagram
 | `readings` | 센서 측정값 | **(`sensor_id`, `measured_at`)이 유일** → 같은 값이 다시 와도 한 번만 저장(재전송에 안전). `sensor_id`는 `sensors.id`를 가리키지만 DB 외래키 제약은 걸지 않음 |
 | `spots` | 투어 장소 | `latitude`, `longitude`는 가까운 센서를 찾을 때 쓰므로 없으면 센서를 빌리지 못함 |
 | `spot_sensors` | 장소와 센서의 연결 (다대다) | 장소 하나가 센서를 여러 개 쓰고(우선순위 순), 센서 하나를 여러 장소가 쓸 수 있음. (`spot_id`, `sensor_id`)가 유일 |
-| `courses` | 투어 코스 | |
+| `courses` | 투어 코스 | `is_core`는 핵심 코스 여부. 핵심 코스는 하나만 두고, 앱의 핵심 코스 카드가 이 코스의 장소를 씀 |
 | `course_spots` | 코스와 장소의 연결 (다대다) | (`course_id`, `position`)이 유일. 코스 총 소요시간은 `minutes`의 합 |
 
 ### 설계 이유
@@ -263,6 +263,7 @@ flowchart TD
 | 필드 | 설명 |
 | --- | --- |
 | `id`, `name`, `name_en`, `description` | 코스 정보 |
+| `is_core` | 핵심 코스 여부. 더울 때나 추울 때 추천하는 가장 짧은 코스이고, 앱이 자유 탐색에서 핵심 코스 장소에 도착했을 때 카드를 띄우는 데 씀 (#37). 핵심 코스는 하나 |
 | `total_minutes` | 총 소요시간(분). 지점별 `minutes`의 합 |
 | `spots[].position` | 코스 안의 순서 (1부터) |
 | `spots[].minutes` | 이전 지점에서 이동 + 이 지점 관람 시간(분) |
@@ -273,6 +274,7 @@ flowchart TD
   {
     "id": 1, "name": "짧은 코스", "name_en": "Short Course",
     "description": "[샘플] 더위/추위에 추천하는 짧은 코스",
+    "is_core": true,
     "total_minutes": 25,
     "spots": [ { "position": 1, "minutes": 5, "spot": { "...": "장소 객체" } } ]
   }

@@ -43,9 +43,9 @@ SPOTS = [
     ),
 ]
 
-# [샘플] 코스: (이름, 영문, 설명, [(spot 순번 1~5, 분)])
+# [샘플] 코스: (이름, 영문, 설명, [(spot 순번 1~5, 분)]) 또는 뒤에 핵심 코스 여부(True)를 덧붙임
 COURSES = [
-    ("짧은 코스", "Short Course", "[샘플] 더위/추위에 추천하는 짧은 코스", [(1, 5), (2, 10), (4, 10)]),
+    ("짧은 코스", "Short Course", "[샘플] 더위/추위에 추천하는 짧은 코스", [(1, 5), (2, 10), (4, 10)], True),
     (
         "기본 코스",
         "Standard Course",
@@ -126,12 +126,13 @@ def seed_if_empty(sample_readings: bool = True, spots=None, courses=None) -> Non
         db.add_all(spots)
         db.flush()
 
-        for n, e, d, stops in course_rows:
+        for n, e, d, stops, *rest in course_rows:
             db.add(
                 models.Course(
                     name=n,
                     name_en=e,
                     description=d,
+                    is_core=bool(rest[0]) if rest else False,
                     stops=[
                         models.CourseSpot(spot_id=spots[i - 1].id, position=pos, minutes=m)
                         for pos, (i, m) in enumerate(stops, start=1)

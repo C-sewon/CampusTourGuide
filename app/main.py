@@ -421,6 +421,7 @@ def list_courses(db: Session = Depends(get_db)):
             name=c.name,
             name_en=c.name_en,
             description=c.description,
+            is_core=c.is_core,
             total_minutes=sum(cs.minutes for cs in c.stops),
             spots=[
                 schemas.CourseSpotOut(

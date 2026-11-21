@@ -58,7 +58,7 @@ def test_explicit_coordinates_look_like_the_campus(spots, courses):
 
 @pytest.mark.parametrize("spots,courses", DATASETS)
 def test_courses_refer_to_existing_spots_with_positive_minutes(spots, courses):
-    for name, _en, _desc, stops in courses:
+    for name, _en, _desc, stops, *_ in courses:
         assert stops, f"{name}: 장소가 없음"
         for spot_number, minutes in stops:
             assert 1 <= spot_number <= len(spots), f"{name}: 없는 장소 번호 {spot_number}"

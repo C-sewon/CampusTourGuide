@@ -90,6 +90,8 @@ class Course(Base):
     name: Mapped[str] = mapped_column(String(100))
     name_en: Mapped[str | None] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text, default="")
+    # 핵심 코스 여부. 더울 때나 추울 때 추천하는 가장 짧은 코스이고, 자유 탐색에서 핵심 코스 카드(#37)에 쓴다
+    is_core: Mapped[bool] = mapped_column(Boolean, default=False)
 
     stops: Mapped[list["CourseSpot"]] = relationship(
         back_populates="course", order_by="CourseSpot.position", cascade="all, delete-orphan"

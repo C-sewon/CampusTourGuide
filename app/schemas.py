@@ -136,6 +136,9 @@ class CourseOut(BaseModel):
     name: str
     name_en: str | None
     description: str
+    is_core: bool = Field(
+        description="핵심 코스 여부. 더울 때나 추울 때 추천하는 가장 짧은 코스이고, 앱의 핵심 코스 카드가 이 코스의 장소를 쓴다"
+    )
     total_minutes: int
     spots: list[CourseSpotOut]
 
