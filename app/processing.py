@@ -5,8 +5,9 @@ from collections.abc import Sequence
 from .models import Reading
 
 
-# 센서(AHT21)가 낼 수 있는 물리적 범위. 벗어나면 오류값으로 본다
-TEMPERATURE_RANGE = (-40.0, 85.0)  # ℃
+# 캠퍼스 야외에서 나올 수 있는 현실적인 범위. 벗어나면 오류값으로 본다.
+# 센서 칩이 낼 수 있는 값(-40~85℃)은 더 넓어서, 고장 난 센서가 내는 73℃ 같은 값이 걸러지지 않았다.
+TEMPERATURE_RANGE = (-20.0, 45.0)  # ℃
 HUMIDITY_RANGE = (0.0, 100.0)  # %
 
 

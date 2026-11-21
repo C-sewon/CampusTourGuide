@@ -71,3 +71,16 @@ def test_sensor_shared_by_two_spots_is_counted_once(client):
     in_courses = {cs["spot"]["id"] for c in client.get("/api/courses").json() for cs in c["spots"]}
     distinct = {sid for sid, ids in by_sensor.items() if set(ids) & in_courses}
     assert body["sample_count"] == len(distinct)
+
+
+def test_a_broken_sensor_reading_does_not_turn_the_day_hot(client):
+    """고장 난 센서의 73도 값이 평균을 끌어올려 '덥다'로 추천되지 않는다."""
+    from tests.test_api import reading
+    import time
+
+    now = int(time.time())
+    for sensor_id in range(1, 6):
+        client.post("/api/readings", json=reading(sensor_id=sensor_id, measured_at=now - 10, temperature=73.0, humidity=40.0))
+    body = client.get("/api/courses/recommend").json()
+    assert body["condition"] == "comfortable"
+    assert body["temperature"] < 30
