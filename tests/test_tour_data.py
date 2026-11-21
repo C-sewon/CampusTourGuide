@@ -40,7 +40,7 @@ def _courses_by_name(client):
 
 def test_the_tour_has_12_spots_and_3_courses(tour_client):
     assert len(_spots_by_name(tour_client)) == 12
-    assert list(_courses_by_name(tour_client)) == ["짧은 코스", "정문 코스", "학생 생활 코스"]
+    assert list(_courses_by_name(tour_client)) == ["핵심 코스", "정문 코스", "학생 생활 코스"]
 
 
 def test_no_sample_text_is_left(tour_client):
@@ -52,12 +52,12 @@ def test_no_sample_text_is_left(tour_client):
 
 def test_course_totals_match_the_numbers_from_the_issue(tour_client):
     totals = {name: c["total_minutes"] for name, c in _courses_by_name(tour_client).items()}
-    assert totals == {"짧은 코스": 25, "정문 코스": 54, "학생 생활 코스": 49}
+    assert totals == {"핵심 코스": 25, "정문 코스": 54, "학생 생활 코스": 49}
 
 
 def test_per_stop_minutes_are_the_numbers_from_the_issue(tour_client):
     expected = {
-        "짧은 코스": [("도서관 뒤편", 5), ("솔못", 13), ("사회과학대 입구", 7)],
+        "핵심 코스": [("도서관 뒤편", 5), ("솔못", 13), ("사회과학대 입구", 7)],
         "정문 코스": [
             ("정문", 5), ("테니스장", 9), ("대학본부", 7), ("사회과학대 입구", 9),
             ("이마트24 건너편", 5), ("도서관 뒤편", 6), ("솔못", 13),
@@ -119,12 +119,12 @@ def test_a_cold_or_hot_day_recommends_the_short_course(tour_client, monkeypatch,
     monkeypatch.setattr(config, setting, value)
     body = tour_client.get("/api/courses/recommend").json()
     assert body["condition"] == condition
-    assert body["recommended_course_name"] == "짧은 코스"
+    assert body["recommended_course_name"] == "핵심 코스"
 
 
 def test_the_short_course_is_the_shortest_and_the_gate_course_the_longest(tour_client):
     totals = {name: c["total_minutes"] for name, c in _courses_by_name(tour_client).items()}
-    assert min(totals, key=totals.get) == "짧은 코스"
+    assert min(totals, key=totals.get) == "핵심 코스"
     assert max(totals, key=totals.get) == "정문 코스"
 
 
