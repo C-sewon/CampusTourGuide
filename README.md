@@ -58,8 +58,8 @@
 | 센서 | BLE 이름 | 연구실 이름 | MAC | 설치 위치 |
 | --- | --- | --- | --- | --- |
 | 1 | `opensrc1` | sensor 07 | 88:A2:9E:9B:5F:09 | 도서관 뒤편 (진로창업본부 입구) |
-| 2 | `opensrc2` | sensor 15 | 88:A2:9E:9B:5E:6A | 사회과학대 입구 |
-| 3 | `opensrc3` | sensor 31 | B8:27:EB:D3:40:06 | 사회과학대 옆 이마트24 건너편 |
+| 2 | `opensrc2` | sensor 15 | 88:A2:9E:9B:5E:6A | 사회과학대 옆 이마트24 건너편 |
+| 3 | `opensrc3` | sensor 31 | B8:27:EB:D3:40:06 | 사회과학대 입구 |
 | 4 | `opensrc4` | sensor 32 | D8:3A:DD:79:8F:80 | 테니스장 앞 |
 | 5 | `opensrc5` | sensor 33 | D8:3A:DD:C1:89:5B | 테니스장 건너편 |
 

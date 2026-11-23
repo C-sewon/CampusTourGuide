@@ -347,7 +347,7 @@ def test_sensor_status_includes_name_mac_and_location(client):
     by_id = {s["sensor_id"]: s for s in client.get("/api/sensors/status").json()}
     assert by_id[2]["ble_name"] == "opensrc2"
     assert by_id[2]["mac"] == "88:A2:9E:9B:5E:6A"
-    assert by_id[2]["location"] == "사회과학대 입구"
+    assert by_id[2]["location"] == "사회과학대 옆 이마트24 건너편"
 
 
 def test_rejected_unregistered_sensor_does_not_appear_in_status(client):
