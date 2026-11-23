@@ -213,6 +213,22 @@ copy .env.example .env          # 설정을 바꿀 것이 없으면 생략해도
 1. `pytest`를 실행합니다. 장소 번호 오류, 같은 장소 중복, 위도와 경도 뒤바뀜, 길이가 같은 코스 등을 `tests/test_seed_data.py`가, 실제 투어 데이터의 장소 수, 코스 시간, 도착 방식, 가까운 센서 빌리기를 `tests/test_tour_data.py`가 확인합니다. 장소나 코스를 바꾸면 `test_tour_data.py`의 기대값도 같이 고쳐야 합니다.
 2. **시드는 DB가 비어 있을 때만 들어갑니다.** 이미 서버를 켠 적이 있으면 `campus_tour.db` 파일을 지우고 서버를 다시 켜야 새 장소와 코스가 반영됩니다. (센서 값은 연구실에서 다시 가져옵니다.)
 3. 폰 브라우저에서 `/api/spots`와 `/api/courses`로 확인합니다.
+4. **앱에 넣어 둔 기본 코스 목록도 다시 뽑습니다.** (아래 "앱에 넣어 둘 기본 코스 목록")
+
+### 앱에 넣어 둘 기본 코스 목록 (서버나 인터넷이 없을 때)
+
+서버나 인터넷이 안 되는 곳에서도 앱이 센서를 감지했을 때 어느 장소인지 알 수 있어야 합니다. (#37의 "서버나 인터넷이 없어도 방문 기록은 동작한다") 그래서 앱은 코스 목록을 **서버, 폰에 저장해 둔 마지막 목록, 앱에 넣어 둔 기본 목록** 순서로 씁니다. 이 기본 목록은 서버 응답과 어긋나지 않게 서버가 만들어 줍니다.
+
+```powershell
+.\.venv\Scripts\python.exe -m app.export_tour                  # docs/tour_default.json 에 씁니다
+.\.venv\Scripts\python.exe -m app.export_tour 파일경로.json    # 다른 파일에 씁니다
+.\.venv\Scripts\python.exe -m app.export_tour -                # 화면에 출력합니다
+```
+
+- 결과는 `GET /api/courses`와 **같은 모양**의 JSON입니다. 장소 12곳, 코스 3개, 센서와 장소의 연결(`arrival.sensors`), `has_card`, `is_core`가 들어 있습니다. 앱이 서버 응답을 읽는 코드로 그대로 읽을 수 있습니다.
+- **온도는 비워서 뽑습니다.** (`latest_reading`, `recent_average`, `value_source`가 `null`) 기본 목록에 예전 온도가 들어 있으면 서버가 안 될 때 그 온도가 현재 값처럼 보일 수 있어서입니다. 앱은 온도 칸이 비어 있을 때 "지금은 값을 받을 수 없어요"로 보여 주면 됩니다.
+- 서버가 쓰는 DB(`campus_tour.db`)는 건드리지 않고, 메모리에 따로 만든 DB에서 뽑습니다. 서버를 켜지 않아도 실행되고, Python이 없는 팀원은 저장소에 올라 있는 `docs/tour_default.json`을 그대로 가져가면 됩니다.
+- **장소나 코스를 고치면 다시 뽑아서 `docs/tour_default.json`을 갱신하고 앱 담당에게 알려야 합니다.** 다시 뽑지 않으면 `pytest`의 `test_the_committed_file_matches_the_current_tour_data`가 실패합니다.
 
 ## 외부 라이브러리와 데이터 출처
 

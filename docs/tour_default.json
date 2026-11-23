@@ -1,0 +1,395 @@
+[
+  {
+    "id": 1,
+    "name": "핵심 코스",
+    "name_en": "Core Course",
+    "description": "더울 때나 추울 때 추천하는 코스. 중앙도서관과 솔못만 둘러봐요.",
+    "is_core": true,
+    "total_minutes": 25,
+    "spots": [
+      {
+        "position": 1,
+        "minutes": 5,
+        "spot": {
+          "id": 6,
+          "name": "도서관 뒤편",
+          "name_en": "Behind the Central Library",
+          "description": "중앙도서관(N12) 뒤편이에요. 중앙도서관은 구관과 신관이 이어진 건물이고, 1층에는 쉬어 갈 수 있는 '온쉼터'가 있어요.",
+          "description_en": null,
+          "latitude": 36.628895,
+          "longitude": 127.457839,
+          "has_card": true,
+          "arrival": {
+            "method": "ble_auto",
+            "sensors": [
+              {
+                "sensor_id": 1,
+                "ble_name": "opensrc1",
+                "mac": "88:A2:9E:9B:5F:09",
+                "location": "도서관 뒤편 (진로창업본부 입구)"
+              }
+            ]
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 2,
+        "minutes": 13,
+        "spot": {
+          "id": 7,
+          "name": "솔못",
+          "name_en": "Solmot Pond",
+          "description": "캠퍼스 한가운데 있는 연못이에요. 둘레에 산책로와 쉼터가 있어 피크닉 명소로 꼽히고, 날이 좋으면 못 가운데 바위에서 햇볕을 쬐는 거북이를 볼 수 있어요.",
+          "description_en": null,
+          "latitude": 36.628913,
+          "longitude": 127.456217,
+          "has_card": true,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 3,
+        "minutes": 7,
+        "spot": {
+          "id": 4,
+          "name": "사회과학대 입구",
+          "name_en": "College of Social Sciences Entrance",
+          "description": "사회과학대학 본관(N15)과 경영학관(N13) 사이 입구예요. 투어 센서가 있어서 가까이 가면 도착을 알려 줘요.",
+          "description_en": null,
+          "latitude": 36.62974,
+          "longitude": 127.456406,
+          "has_card": true,
+          "arrival": {
+            "method": "ble_auto",
+            "sensors": [
+              {
+                "sensor_id": 2,
+                "ble_name": "opensrc2",
+                "mac": "88:A2:9E:9B:5E:6A",
+                "location": "사회과학대 입구"
+              }
+            ]
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "정문 코스",
+    "name_en": "Main Gate Course",
+    "description": "정문으로 들어와 대학본부를 지나 캠퍼스 한가운데 솔못까지 걷는 첫 방문 코스.",
+    "is_core": false,
+    "total_minutes": 54,
+    "spots": [
+      {
+        "position": 1,
+        "minutes": 5,
+        "spot": {
+          "id": 1,
+          "name": "정문",
+          "name_en": "Main Gate",
+          "description": "충북대학교로 들어오는 정문(N1)이에요. 높이 약 13m의 문주는 독특한 모양 때문에 학생들 사이에서 '더위사냥'이라고 불리고, 학교의 건학이념인 진리, 정의, 개척을 상징해요.",
+          "description_en": null,
+          "latitude": 36.632283,
+          "longitude": 127.453047,
+          "has_card": false,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 2,
+        "minutes": 9,
+        "spot": {
+          "id": 2,
+          "name": "테니스장",
+          "name_en": "Tennis Courts",
+          "description": "정문에서 캠퍼스 안쪽으로 들어오면 보이는 테니스장(N3)이에요. 길 양쪽에 투어 센서가 있어서 가까이 가면 도착을 알려 줘요.",
+          "description_en": null,
+          "latitude": 36.6306005,
+          "longitude": 127.455014,
+          "has_card": false,
+          "arrival": {
+            "method": "ble_auto",
+            "sensors": [
+              {
+                "sensor_id": 4,
+                "ble_name": "opensrc4",
+                "mac": "D8:3A:DD:79:8F:80",
+                "location": "테니스장 앞"
+              },
+              {
+                "sensor_id": 5,
+                "ble_name": "opensrc5",
+                "mac": "D8:3A:DD:C1:89:5B",
+                "location": "테니스장 건너편"
+              }
+            ]
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 3,
+        "minutes": 7,
+        "spot": {
+          "id": 3,
+          "name": "대학본부",
+          "name_en": "University Headquarters",
+          "description": "총장실과 학교 행정 부서가 있는 대학본부(N10)예요. 국제교류본부도 같은 건물에 있어요.",
+          "description_en": null,
+          "latitude": 36.629983,
+          "longitude": 127.454598,
+          "has_card": false,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 4,
+        "minutes": 9,
+        "spot": {
+          "id": 4,
+          "name": "사회과학대 입구",
+          "name_en": "College of Social Sciences Entrance",
+          "description": "사회과학대학 본관(N15)과 경영학관(N13) 사이 입구예요. 투어 센서가 있어서 가까이 가면 도착을 알려 줘요.",
+          "description_en": null,
+          "latitude": 36.62974,
+          "longitude": 127.456406,
+          "has_card": true,
+          "arrival": {
+            "method": "ble_auto",
+            "sensors": [
+              {
+                "sensor_id": 2,
+                "ble_name": "opensrc2",
+                "mac": "88:A2:9E:9B:5E:6A",
+                "location": "사회과학대 입구"
+              }
+            ]
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 5,
+        "minutes": 5,
+        "spot": {
+          "id": 5,
+          "name": "이마트24 건너편",
+          "name_en": "Across from E-Mart24",
+          "description": "사회과학대학 본관 옆 길 건너편이에요. 캠퍼스 북쪽에서 중앙도서관으로 내려가는 길목이에요.",
+          "description_en": null,
+          "latitude": 36.629309,
+          "longitude": 127.45748,
+          "has_card": false,
+          "arrival": {
+            "method": "ble_auto",
+            "sensors": [
+              {
+                "sensor_id": 3,
+                "ble_name": "opensrc3",
+                "mac": "B8:27:EB:D3:40:06",
+                "location": "사회과학대 옆 이마트24 건너편"
+              }
+            ]
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 6,
+        "minutes": 6,
+        "spot": {
+          "id": 6,
+          "name": "도서관 뒤편",
+          "name_en": "Behind the Central Library",
+          "description": "중앙도서관(N12) 뒤편이에요. 중앙도서관은 구관과 신관이 이어진 건물이고, 1층에는 쉬어 갈 수 있는 '온쉼터'가 있어요.",
+          "description_en": null,
+          "latitude": 36.628895,
+          "longitude": 127.457839,
+          "has_card": true,
+          "arrival": {
+            "method": "ble_auto",
+            "sensors": [
+              {
+                "sensor_id": 1,
+                "ble_name": "opensrc1",
+                "mac": "88:A2:9E:9B:5F:09",
+                "location": "도서관 뒤편 (진로창업본부 입구)"
+              }
+            ]
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 7,
+        "minutes": 13,
+        "spot": {
+          "id": 7,
+          "name": "솔못",
+          "name_en": "Solmot Pond",
+          "description": "캠퍼스 한가운데 있는 연못이에요. 둘레에 산책로와 쉼터가 있어 피크닉 명소로 꼽히고, 날이 좋으면 못 가운데 바위에서 햇볕을 쬐는 거북이를 볼 수 있어요.",
+          "description_en": null,
+          "latitude": 36.628913,
+          "longitude": 127.456217,
+          "has_card": true,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "학생 생활 코스",
+    "name_en": "Student Life Course",
+    "description": "공연장, 학생식당, 박물관, 야외공연장, 기숙사까지 학교생활 장소를 도는 코스.",
+    "is_core": false,
+    "total_minutes": 49,
+    "spots": [
+      {
+        "position": 1,
+        "minutes": 5,
+        "spot": {
+          "id": 8,
+          "name": "개신문화관",
+          "name_en": "Gaesin Culture Center",
+          "description": "733석 대공연장이 있는 개신문화관(E2)이에요. 공연, 음악회 같은 큰 행사가 열려요.",
+          "description_en": null,
+          "latitude": 36.628238,
+          "longitude": 127.459429,
+          "has_card": true,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 2,
+        "minutes": 6,
+        "spot": {
+          "id": 9,
+          "name": "제1학생회관",
+          "name_en": "First Student Union",
+          "description": "학생식당인 한빛식당과 별빛식당이 있는 제1학생회관(E3)이에요. 주변에 카페와 은행도 모여 있어요.",
+          "description_en": null,
+          "latitude": 36.627594,
+          "longitude": 127.458843,
+          "has_card": false,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 3,
+        "minutes": 19,
+        "spot": {
+          "id": 10,
+          "name": "박물관",
+          "name_en": "CBNU Museum",
+          "description": "1970년에 문을 연 충북대학교 박물관(S9)이에요. 제1전시실은 국내에서 가장 큰 구석기 전시실로, 두루봉동굴에서 나온 인류화석 '흥수아이'와 소로리 볍씨를 볼 수 있어요.",
+          "description_en": null,
+          "latitude": 36.62779,
+          "longitude": 127.455371,
+          "has_card": true,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 4,
+        "minutes": 8,
+        "spot": {
+          "id": 11,
+          "name": "야외공연장",
+          "name_en": "Outdoor Stage",
+          "description": "공연과 학생 행사가 열리는 야외공연장(S8)이에요.",
+          "description_en": null,
+          "latitude": 36.626888,
+          "longitude": 127.45409,
+          "has_card": true,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      },
+      {
+        "position": 5,
+        "minutes": 11,
+        "spot": {
+          "id": 12,
+          "name": "양성재",
+          "name_en": "Yangseongjae Dormitory",
+          "description": "지선관, 명덕관, 신민관으로 이루어진 학생 기숙사 양성재(S17)예요. 외부인은 건물 안에 들어갈 수 없어서 앞에서 둘러봐요.",
+          "description_en": null,
+          "latitude": 36.627635,
+          "longitude": 127.452406,
+          "has_card": false,
+          "arrival": {
+            "method": "manual",
+            "sensors": []
+          },
+          "latest_reading": null,
+          "recent_average": null,
+          "value_source": null
+        }
+      }
+    ]
+  }
+]
