@@ -31,7 +31,8 @@ import retrofit2.Response;
 /**
  * 홈(탐색) 화면 (설계 문서 4장 "화면 1").
  * 서버 주소가 설정돼 있으면 GET /api/sensors(/status), /api/courses/recommend 로 채우고,
- * 없으면 [샘플] 데이터로 화면 모양만 보여준다.
+ * 서버 주소가 없거나 서버가 안 되면 폰에 저장해 둔 코스 목록이나 앱에 넣어 둔 기본 목록(TourData)으로 보여준다.
+ * 이때 기온은 모르므로 온도 없이 추천한다.
  * 서버 주소는 앱 제목을 길게 눌러 넣는다 (개발용, TourServer).
  */
 public class HomeActivity extends AppCompatActivity {
@@ -89,6 +90,8 @@ public class HomeActivity extends AppCompatActivity {
             return true;
         });
 
+        // 서버를 기다리지 않고 저장본이나 기본 목록으로 자동 도착 연결부터 채운다 (#37)
+        TourData.prepareArrivals(this);
         setupMap();
         load();
         setupAutoDetect(savedInstanceState == null);
@@ -162,13 +165,13 @@ public class HomeActivity extends AppCompatActivity {
 
     // ---------- 데이터 불러오기 ----------
 
-    /** 서버 주소가 있으면 서버에서, 없으면 샘플로 화면을 채운다 */
+    /** 서버 주소가 있으면 서버에서, 없으면 저장본이나 기본 목록으로 화면을 채운다 */
     private void load() {
         clearSensors();
         recommendedCourseId = null;
         api = TourServer.api(this);
         if (api == null) {
-            showSample();
+            showOffline(false);
             return;
         }
         showLoading();
@@ -241,21 +244,12 @@ public class HomeActivity extends AppCompatActivity {
                 recommendedCourseId = rec.recommendedCourseId;
                 showRecommendation(rec.recommendedCourseName, rec.condition, rec.temperature, totalMinutes, 0);
 
-                api.courses().enqueue(new Callback<List<HomeApi.Course>>() {
-                    @Override
-                    public void onResponse(Call<List<HomeApi.Course>> c, Response<List<HomeApi.Course>> r) {
-                        if (isGone(api) || !r.isSuccessful() || r.body() == null) return;
-                        ArrivalRouter.update(r.body()); // 센서 N 도착 → 장소 (#29)
-                        for (HomeApi.Course course : r.body()) {
-                            if (course.id == rec.recommendedCourseId && course.spots != null) {
-                                tvRecommendMeta.setText(HomeDisplay.meta(totalMinutes, course.spots.size()));
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<List<HomeApi.Course>> c, Throwable t) {
-                        // 장소 수만 빠진다. 시간은 이미 보여주고 있다
+                // 코스 목록에서 장소 수를 센다. 받은 목록은 폰에 저장되고 자동 도착 연결도 채워진다 (TourData)
+                TourData.load(HomeActivity.this, api, (courses, source) -> {
+                    if (isGone(api)) return;
+                    HomeApi.Course course = TourData.find(courses, rec.recommendedCourseId);
+                    if (course != null && course.spots != null) {
+                        tvRecommendMeta.setText(HomeDisplay.meta(totalMinutes, course.spots.size()));
                     }
                 });
             }
@@ -263,7 +257,7 @@ public class HomeActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<HomeApi.Recommendation> call, Throwable t) {
                 if (isGone(api)) return;
-                showServerError("서버에 연결할 수 없어요");
+                showOffline(true);
             }
         });
     }
@@ -292,23 +286,40 @@ public class HomeActivity extends AppCompatActivity {
         fitSensors();
     }
 
-    /** [샘플] 화면 확인용 데이터. 센서 좌표는 서버 시드의 실제 값, 온도는 샘플 */
-    private void showSample() {
-        ArrivalRouter.update(TourSamples.courses()); // 센서 N 도착 → 장소 (#29)
-        showRecommendation("[샘플] 짧은 코스", "hot", 27.0, 25, 3);
-        recommendedCourseId = 1;
+    /**
+     * 서버 없이 보여주는 홈. 코스는 저장본이나 기본 목록(TourData), 추천은 서버 규칙대로 기온 없이 가장 긴 코스.
+     * 지도에는 우리 센서 5대 위치를 값 없이(회색) 그린다. serverDown 이면 서버 주소는 있는데 연결이 안 된 것이다.
+     */
+    private void showOffline(boolean serverDown) {
+        List<HomeApi.Course> courses = TourData.offline(this).courses;
+        ArrivalRouter.update(courses); // 센서 N 도착 → 장소 (#29)
+        HomeApi.Recommendation rec = TourData.offlineRecommendation(courses);
+        HomeApi.Course course = rec.recommendedCourseId == null ? null : TourData.find(courses, rec.recommendedCourseId);
+        if (course == null) {
+            showServerError(serverDown ? "서버에 연결할 수 없어요" : "코스 목록이 없어요");
+        } else {
+            recommendedCourseId = course.id;
+            tvRecommendTitle.setText("추천 코스: " + course.name);
+            tvReason.setText(HomeDisplay.offlineReason(serverDown));
+            tvRecommendMeta.setText(HomeDisplay.meta(course.totalMinutes, course.spots == null ? 0 : course.spots.size()));
+            applyTone(HomeDisplay.Tone.NEUTRAL);
+        }
 
-        addSampleSensor(1, "도서관 뒤편", 36.628895, 127.457839, 22.0);
-        addSampleSensor(2, "사회과학대 입구", 36.62974, 127.456406, 28.0);
-        addSampleSensor(3, "이마트24 건너편", 36.629309, 127.45748, null);
-        addSampleSensor(4, "테니스장 앞", 36.63027, 127.455806, null);
-        addSampleSensor(5, "테니스장 건너편", 36.630931, 127.454222, 31.0);
+        // 서버에서 받은 센서가 이미 그려져 있으면 그대로 둔다
+        if (!tourSensorPoints.isEmpty()) return;
+        addOfflineSensor(1, "도서관 뒤편", 36.628895, 127.457839);
+        // 센서 2, 3의 설치 위치는 현장 확인(#43)대로 서버 센서 표와 같게 쓴다
+        addOfflineSensor(2, "이마트24 건너편", 36.62974, 127.456406);
+        addOfflineSensor(3, "사회과학대 입구", 36.629309, 127.45748);
+        addOfflineSensor(4, "테니스장 앞", 36.63027, 127.455806);
+        addOfflineSensor(5, "테니스장 건너편", 36.630931, 127.454222);
         fitSensors();
     }
 
-    private void addSampleSensor(int sensorId, String location, double lat, double lon, Double celsius) {
+    /** 서버 없이 그리는 우리 센서. 좌표는 서버의 센서 표와 같고, 값은 모르므로 회색 */
+    private void addOfflineSensor(int sensorId, String location, double lat, double lon) {
         GeoPoint point = new GeoPoint(lat, lon);
-        addSensorMarker(sensorId, point, celsius, "[샘플] " + HomeDisplay.sensorLabel(sensorId, location, celsius));
+        addSensorMarker(sensorId, point, null, HomeDisplay.sensorLabel(sensorId, location, null));
         tourSensorPoints.add(point);
     }
 

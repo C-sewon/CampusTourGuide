@@ -33,6 +33,6 @@ public class CourseDisplayTest {
 
     @Test
     public void stopsTitle() {
-        assertEquals("짧은 코스 · 장소 순서", CourseDisplay.stopsTitle("짧은 코스"));
+        assertEquals("핵심 코스 · 장소 순서", CourseDisplay.stopsTitle("핵심 코스"));
     }
 }

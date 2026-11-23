@@ -78,7 +78,7 @@
                 android:textColor="@color/tour_text"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                tools:text="짧은 코스 · 장소 순서" />
+                tools:text="핵심 코스 · 장소 순서" />
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardStops"

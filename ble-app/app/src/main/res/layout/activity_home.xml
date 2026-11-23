@@ -220,7 +220,7 @@
                             android:layout_weight="1"
                             android:textColor="@color/tour_warm_text"
                             android:textSize="13sp"
-                            tools:text="지금 31°C · 더운 날엔 짧은 코스를 추천해요" />
+                            tools:text="지금 31°C · 더운 날엔 핵심 코스를 추천해요" />
                     </LinearLayout>
 
                     <View

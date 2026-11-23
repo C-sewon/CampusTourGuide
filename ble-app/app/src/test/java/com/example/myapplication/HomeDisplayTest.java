@@ -8,12 +8,12 @@ public class HomeDisplayTest {
 
     @Test
     public void reason_hot() {
-        assertEquals("지금 31°C · 더운 날엔 짧은 코스를 추천해요", HomeDisplay.reason("hot", 31.0));
+        assertEquals("지금 31°C · 더운 날엔 핵심 코스를 추천해요", HomeDisplay.reason("hot", 31.0));
     }
 
     @Test
     public void reason_cold_keepsOneDecimal() {
-        assertEquals("지금 3.5°C · 추운 날엔 짧은 코스를 추천해요", HomeDisplay.reason("cold", 3.5));
+        assertEquals("지금 3.5°C · 추운 날엔 핵심 코스를 추천해요", HomeDisplay.reason("cold", 3.5));
     }
 
     @Test
@@ -23,10 +23,16 @@ public class HomeDisplayTest {
 
     @Test
     public void reason_unknownOrNoTemperature() {
-        String expected = "지금은 기온을 알 수 없어 기본 코스를 추천해요";
+        String expected = "지금은 기온을 알 수 없어 긴 코스를 추천해요";
         assertEquals(expected, HomeDisplay.reason("unknown", null));
         assertEquals(expected, HomeDisplay.reason("hot", null));
         assertEquals(expected, HomeDisplay.reason(null, 20.0));
+    }
+
+    @Test
+    public void offlineReason() {
+        assertEquals("서버에 연결할 수 없어 기온 없이 추천해요", HomeDisplay.offlineReason(true));
+        assertEquals("지금은 기온을 알 수 없어 긴 코스를 추천해요", HomeDisplay.offlineReason(false));
     }
 
     @Test

@@ -73,6 +73,8 @@ public interface HomeApi {
         int id;
         String name;
         String description;
+        /** 핵심 코스면 true. 핵심 코스는 하나이고, 이 코스의 장소로 "핵심 코스 N곳 중 M곳"을 센다 (#37) */
+        @SerializedName("is_core") boolean isCore;
         @SerializedName("total_minutes") int totalMinutes;
         List<CourseSpot> spots;
     }
@@ -89,6 +91,8 @@ public interface HomeApi {
         String description;
         Double latitude;
         Double longitude;
+        /** 도착하면 카드를 띄우는 장소면 true (#37) */
+        @SerializedName("has_card") boolean hasCard;
         Arrival arrival;
         @SerializedName("latest_reading") Reading latestReading;
         @SerializedName("value_source") ValueSource valueSource;
