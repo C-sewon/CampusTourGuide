@@ -157,7 +157,7 @@ flowchart TD
 ```
 
 - 센서 4가 죽어 있으면 센서 4·5가 연결된 **테니스장은 센서 5의 값**을 씁니다.
-- 센서 3이 죽어 있는 **이마트24 건너편은 56m 거리의 opensrc1 값**을 빌립니다. (실제 데이터로 확인)
+- 센서 3이 죽어 있어서, 센서 3이 있는 **사회과학대 입구는 56m 거리의 opensrc1 값**을 빌립니다. (실제 데이터로 확인. 센서 2, 3의 설치 위치는 현장 확인 뒤 #43에서 바로잡았습니다.)
 - 최대 거리 200m는 `MAX_BORROW_METERS`로 바꿀 수 있습니다. 먼 센서는 그 장소의 온도라고 보기 어려워 쓰지 않습니다.
 
 ### 연구실 센서 가져오기 (동기화)
@@ -252,7 +252,7 @@ flowchart TD
   "arrival": { "method": "manual", "sensors": [] },
   "latest_reading": { "sensor_id": 2, "temperature": 22.0, "humidity": 52.0, "age_minutes": 2, "is_stale": false, "is_suspect": false },
   "value_source": { "sensor_id": 2, "ble_name": "opensrc2", "lab_name": "sensor 15",
-                    "location": "사회과학대 입구", "is_on_site": false, "distance_m": null }
+                    "location": "사회과학대 옆 이마트24 건너편", "is_on_site": false, "distance_m": null }
 }
 ```
 (일부 필드는 생략했습니다. 이 샘플 장소는 좌표가 없어 `distance_m`이 `null`입니다.)

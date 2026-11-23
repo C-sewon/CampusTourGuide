@@ -95,7 +95,7 @@ def test_spot_without_sensor_borrows_a_nearby_sensor_value(client):
     spot = client.get(f"/api/spots/{NO_SENSOR}").json()
     assert spot["value_source"]["sensor_id"] == 2  # 시드: 사회과학대 입구 센서를 빌림
     assert spot["value_source"]["is_on_site"] is False
-    assert spot["value_source"]["location"] == "사회과학대 입구"
+    assert spot["value_source"]["location"] == "사회과학대 옆 이마트24 건너편"
     assert spot["latest_reading"]["temperature"] == 22.0
 
 

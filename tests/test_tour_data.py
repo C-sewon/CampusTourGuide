@@ -91,7 +91,9 @@ def test_every_spot_has_coordinates(tour_client):
 def test_sensor_spots_use_the_sensor_coordinates_from_the_issue(tour_client):
     spots = _spots_by_name(tour_client)
     assert (spots["도서관 뒤편"]["latitude"], spots["도서관 뒤편"]["longitude"]) == (36.628895, 127.457839)
-    assert (spots["사회과학대 입구"]["latitude"], spots["사회과학대 입구"]["longitude"]) == (36.62974, 127.456406)
+    # 사회과학대 입구는 센서 3, 이마트24 건너편은 센서 2의 좌표이다 (현장 확인, #43)
+    assert (spots["사회과학대 입구"]["latitude"], spots["사회과학대 입구"]["longitude"]) == (36.629309, 127.45748)
+    assert (spots["이마트24 건너편"]["latitude"], spots["이마트24 건너편"]["longitude"]) == (36.62974, 127.456406)
     # 테니스장은 센서 4, 5 좌표의 평균이고 이슈 표의 36.630600, 127.455014 와 같다
     assert spots["테니스장"]["latitude"] == pytest.approx(36.6306, abs=1e-5)
     assert spots["테니스장"]["longitude"] == pytest.approx(127.455014, abs=1e-5)
@@ -132,3 +134,10 @@ def test_the_sample_data_is_still_the_default_for_tests(tour_client):
     # seed_if_empty() 를 인자 없이 부르면 개발용 샘플이 들어간다 (다른 테스트가 샘플을 기대한다)
     assert seed.SPOTS is not tour_data.SPOTS
     assert any("[샘플]" in s[2] for s in seed.SPOTS)
+
+
+def test_the_sensor_at_each_named_place_matches_the_field_check(tour_client):
+    """현장 확인(#43, 11/23): 사회과학대 입구에서 센서 3이, 이마트24 건너편에서 센서 2가 잡힌다."""
+    spots = _spots_by_name(tour_client)
+    assert [s["ble_name"] for s in spots["사회과학대 입구"]["arrival"]["sensors"]] == ["opensrc3"]
+    assert [s["ble_name"] for s in spots["이마트24 건너편"]["arrival"]["sensors"]] == ["opensrc2"]
