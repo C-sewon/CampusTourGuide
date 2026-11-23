@@ -1,11 +1,15 @@
 package com.example.myapplication;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -47,6 +51,17 @@ public class HomeActivity extends AppCompatActivity {
     /** 지도 범위를 맞출 때 쓰는 우리 팀(opensrc) 센서 위치. 연구실 센서는 캠퍼스 곳곳에 있어 범위에서 뺀다 */
     private final List<GeoPoint> tourSensorPoints = new ArrayList<>();
 
+    // ---------- BLE 자동 감지 (#29, 황지유) ----------
+    private TextView tvAutoDetect, tvAutoDetectBanner;
+    private final ActivityResultLauncher<String[]> blePermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(), granted -> TourScanner.get(this).refresh());
+    private final TourScanner.Listener scanListener = new TourScanner.Listener() {
+        @Override
+        public void onStateChanged(ScanState state) {
+            showScanState(state);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -76,12 +91,61 @@ public class HomeActivity extends AppCompatActivity {
 
         setupMap();
         load();
+        setupAutoDetect(savedInstanceState == null);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        TourScanner scanner = TourScanner.get(this);
+        scanner.addListener(scanListener);
+        scanner.acquire();
+        showScanState(scanner.state());
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        TourScanner scanner = TourScanner.get(this);
+        scanner.release();
+        scanner.removeListener(scanListener);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         mapView.onResume();
+        // 블루투스를 켜고 돌아왔거나 권한을 설정에서 허용한 경우 스캔을 다시 시작한다
+        TourScanner.get(this).refresh();
+    }
+
+    // ---------- BLE 자동 감지 (#29, 황지유) ----------
+
+    /** 처음 열 때 블루투스·위치 권한을 묻고, "자동 감지" 칩을 누르면 문제를 해결하는 화면으로 보낸다 */
+    private void setupAutoDetect(boolean firstLaunch) {
+        tvAutoDetect = findViewById(R.id.tvAutoDetect);
+        tvAutoDetectBanner = findViewById(R.id.tvAutoDetectBanner);
+        if (firstLaunch && !TourScanner.hasPermissions(this)) {
+            blePermissionLauncher.launch(TourScanner.requiredPermissions());
+        }
+        View.OnClickListener fix = v -> {
+            ScanState s = TourScanner.get(this).state();
+            if (s == ScanState.NO_PERMISSION) blePermissionLauncher.launch(TourScanner.requiredPermissions());
+            else if (s == ScanState.BLUETOOTH_OFF) startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));
+        };
+        tvAutoDetect.setOnClickListener(fix);
+        tvAutoDetectBanner.setOnClickListener(fix);
+        // 개발용: 칩을 길게 누르면 센서 로그 화면 (스캔·도착·업로드 로그)
+        tvAutoDetect.setOnLongClickListener(v -> {
+            startActivity(new Intent(this, MainActivity.class));
+            return true;
+        });
+    }
+
+    private void showScanState(ScanState state) {
+        if (tvAutoDetect == null) return;
+        tvAutoDetect.setText(state.label);
+        tvAutoDetectBanner.setText(state.needsUserAction() ? state.label + " (눌러서 설정)" : state.label);
     }
 
     @Override
@@ -181,6 +245,7 @@ public class HomeActivity extends AppCompatActivity {
                     @Override
                     public void onResponse(Call<List<HomeApi.Course>> c, Response<List<HomeApi.Course>> r) {
                         if (isGone(api) || !r.isSuccessful() || r.body() == null) return;
+                        ArrivalRouter.update(r.body()); // 센서 N 도착 → 장소 (#29)
                         for (HomeApi.Course course : r.body()) {
                             if (course.id == rec.recommendedCourseId && course.spots != null) {
                                 tvRecommendMeta.setText(HomeDisplay.meta(totalMinutes, course.spots.size()));
@@ -229,6 +294,7 @@ public class HomeActivity extends AppCompatActivity {
 
     /** [샘플] 화면 확인용 데이터. 센서 좌표는 서버 시드의 실제 값, 온도는 샘플 */
     private void showSample() {
+        ArrivalRouter.update(TourSamples.courses()); // 센서 N 도착 → 장소 (#29)
         showRecommendation("[샘플] 짧은 코스", "hot", 27.0, 25, 3);
         recommendedCourseId = 1;
 
