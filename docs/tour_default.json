@@ -65,16 +65,16 @@
           "name_en": "College of Social Sciences Entrance",
           "description": "사회과학대학 본관(N15)과 경영학관(N13) 사이 입구예요. 투어 센서가 있어서 가까이 가면 도착을 알려 줘요.",
           "description_en": null,
-          "latitude": 36.62974,
-          "longitude": 127.456406,
+          "latitude": 36.629309,
+          "longitude": 127.45748,
           "has_card": true,
           "arrival": {
             "method": "ble_auto",
             "sensors": [
               {
-                "sensor_id": 2,
-                "ble_name": "opensrc2",
-                "mac": "88:A2:9E:9B:5E:6A",
+                "sensor_id": 3,
+                "ble_name": "opensrc3",
+                "mac": "B8:27:EB:D3:40:06",
                 "location": "사회과학대 입구"
               }
             ]
@@ -179,16 +179,16 @@
           "name_en": "College of Social Sciences Entrance",
           "description": "사회과학대학 본관(N15)과 경영학관(N13) 사이 입구예요. 투어 센서가 있어서 가까이 가면 도착을 알려 줘요.",
           "description_en": null,
-          "latitude": 36.62974,
-          "longitude": 127.456406,
+          "latitude": 36.629309,
+          "longitude": 127.45748,
           "has_card": true,
           "arrival": {
             "method": "ble_auto",
             "sensors": [
               {
-                "sensor_id": 2,
-                "ble_name": "opensrc2",
-                "mac": "88:A2:9E:9B:5E:6A",
+                "sensor_id": 3,
+                "ble_name": "opensrc3",
+                "mac": "B8:27:EB:D3:40:06",
                 "location": "사회과학대 입구"
               }
             ]
@@ -207,16 +207,16 @@
           "name_en": "Across from E-Mart24",
           "description": "사회과학대학 본관 옆 길 건너편이에요. 캠퍼스 북쪽에서 중앙도서관으로 내려가는 길목이에요.",
           "description_en": null,
-          "latitude": 36.629309,
-          "longitude": 127.45748,
+          "latitude": 36.62974,
+          "longitude": 127.456406,
           "has_card": false,
           "arrival": {
             "method": "ble_auto",
             "sensors": [
               {
-                "sensor_id": 3,
-                "ble_name": "opensrc3",
-                "mac": "B8:27:EB:D3:40:06",
+                "sensor_id": 2,
+                "ble_name": "opensrc2",
+                "mac": "88:A2:9E:9B:5E:6A",
                 "location": "사회과학대 옆 이마트24 건너편"
               }
             ]
