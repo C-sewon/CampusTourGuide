@@ -36,9 +36,9 @@ public class ArrivalRouterTest {
         return c;
     }
 
-    // 실제 투어 데이터(#22, PR #38)와 같은 구성: 도서관 뒤편 1, 사회과학대 입구 2, 이마트24 건너편 3, 테니스장 4·5
+    // 실제 투어 데이터(#22, PR #38, #47)와 같은 구성: 도서관 뒤편 1, 사회과학대 입구 3, 이마트24 건너편 2, 테니스장 4·5
     private static List<HomeApi.Course> realCourses() {
-        HomeApi.Spot library = spot(6, 1), social = spot(4, 2), emart = spot(5, 3), tennis = spot(2, 4, 5);
+        HomeApi.Spot library = spot(6, 1), social = spot(4, 3), emart = spot(5, 2), tennis = spot(2, 4, 5);
         HomeApi.Spot gate = spot(1), solmot = spot(7), museum = spot(10);
         return List.of(
                 course(1, library, solmot, social),                              // 핵심 코스
@@ -58,8 +58,8 @@ public class ArrivalRouterTest {
         // 도서관 뒤편은 핵심 코스와 정문 코스 둘 다에 있지만 한 번만
         Map<Integer, List<Integer>> map = ArrivalRouter.build(realCourses());
         assertEquals(List.of(6), map.get(1));
-        assertEquals(List.of(4), map.get(2));
-        assertEquals(List.of(5), map.get(3));
+        assertEquals(List.of(5), map.get(2));
+        assertEquals(List.of(4), map.get(3));
     }
 
     @Test
