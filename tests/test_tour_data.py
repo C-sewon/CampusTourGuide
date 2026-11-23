@@ -25,7 +25,7 @@ def tour_client(monkeypatch):
             db.close()
 
     main.app.dependency_overrides[get_db] = override
-    seed.seed_if_empty(spots=tour_data.SPOTS, courses=tour_data.COURSES)
+    seed.seed_if_empty(spots=tour_data.SPOTS, courses=tour_data.COURSES, card_spots=tour_data.CARD_SPOTS)
     yield TestClient(main.app)
     main.app.dependency_overrides.clear()
 
