@@ -141,3 +141,21 @@ def test_the_sensor_at_each_named_place_matches_the_field_check(tour_client):
     spots = _spots_by_name(tour_client)
     assert [s["ble_name"] for s in spots["사회과학대 입구"]["arrival"]["sensors"]] == ["opensrc3"]
     assert [s["ble_name"] for s in spots["이마트24 건너편"]["arrival"]["sensors"]] == ["opensrc2"]
+
+
+# 장소 번호(id)는 이 순서대로 매겨진다. 앱이 방문 기록을 장소 번호로 폰에 저장하고, 앱의 기본 코스 목록도 같은 번호를 쓴다.
+SPOT_ORDER = [
+    "정문", "테니스장", "대학본부", "사회과학대 입구", "이마트24 건너편", "도서관 뒤편",
+    "솔못", "개신문화관", "제1학생회관", "박물관", "야외공연장", "양성재",
+]
+
+
+def test_spot_order_is_stable():
+    """장소 순서를 바꾸면 장소 번호가 밀려서 폰에 저장된 방문 기록과 어긋난다. 새 장소는 맨 뒤에 추가한다."""
+    names = [spot[0] for spot in tour_data.SPOTS]
+    assert names[: len(SPOT_ORDER)] == SPOT_ORDER, "장소 순서가 바뀌었습니다. 새 장소는 SPOTS 맨 뒤에 추가하세요."
+
+
+def test_spot_ids_follow_the_order_in_the_server_response(tour_client):
+    ids = {s["name"]: s["id"] for s in tour_client.get("/api/spots").json()}
+    assert [ids[name] for name in SPOT_ORDER] == list(range(1, len(SPOT_ORDER) + 1))
