@@ -61,8 +61,8 @@ public class HomeDisplayTest {
 
     @Test
     public void meta() {
-        assertEquals("도보 약 12분 · 장소 2곳", HomeDisplay.meta(12, 2));
-        assertEquals("도보 약 12분", HomeDisplay.meta(12, 0));
+        assertEquals("약 12분 · 장소 2곳", HomeDisplay.meta(12, 2));
+        assertEquals("약 12분", HomeDisplay.meta(12, 0));
     }
 
     @Test

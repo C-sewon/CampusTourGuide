@@ -41,6 +41,10 @@
         <activity
             android:name=".CourseActivity"
             android:exported="false" />
+        <!-- 내 코스 만들기 (#37 자유 탐색, 코스 둘러보기 화면에서 연다) -->
+        <activity
+            android:name=".MyCourseActivity"
+            android:exported="false" />
         <!-- 장소 안내 화면 (코스 화면 "이 코스 시작하기", 홈 "투어 시작하기"에서 연다) -->
         <activity
             android:name=".SpotActivity"

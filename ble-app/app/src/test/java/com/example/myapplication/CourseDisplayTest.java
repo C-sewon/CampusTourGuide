@@ -35,4 +35,13 @@ public class CourseDisplayTest {
     public void stopsTitle() {
         assertEquals("핵심 코스 · 장소 순서", CourseDisplay.stopsTitle("핵심 코스"));
     }
+
+    @Test
+    public void myCourseTexts() {
+        assertEquals("원하는 장소를 골라 순서대로 걸어요", CourseDisplay.myCourseEntryMeta(0));
+        assertEquals("지난번에 고른 3곳 · 눌러서 고치거나 시작해요", CourseDisplay.myCourseEntryMeta(3));
+        assertEquals("아직 고른 곳이 없어요 · 2곳 이상 골라 주세요", CourseDisplay.myCourseSummary(0, 2));
+        assertEquals("1곳 골랐어요 · 2곳 이상 골라 주세요", CourseDisplay.myCourseSummary(1, 2));
+        assertEquals("3곳 골랐어요 · 누른 순서대로 걸어요", CourseDisplay.myCourseSummary(3, 2));
+    }
 }

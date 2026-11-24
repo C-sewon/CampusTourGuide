@@ -37,4 +37,24 @@ public final class CourseDisplay {
     public static String stopsTitle(String courseName) {
         return courseName + " · 장소 순서";
     }
+
+    // ---------- 내 코스 만들기 (#37) ----------
+
+    /** 코스 목록 아래 "내 코스 만들기" 카드의 설명. 고른 적이 있으면 그 수를 알려 준다 */
+    public static String myCourseEntryMeta(int savedCount) {
+        if (savedCount <= 0) return "원하는 장소를 골라 순서대로 걸어요";
+        return "지난번에 고른 " + savedCount + "곳 · 눌러서 고치거나 시작해요";
+    }
+
+    /** 내 코스 화면 아래 안내. 예: "3곳 골랐어요 · 누른 순서대로 걸어요" */
+    public static String myCourseSummary(int selected, int minSpots) {
+        if (selected <= 0) return "아직 고른 곳이 없어요 · " + minSpots + "곳 이상 골라 주세요";
+        if (selected < minSpots) return selected + "곳 골랐어요 · " + minSpots + "곳 이상 골라 주세요";
+        return selected + "곳 골랐어요 · 누른 순서대로 걸어요";
+    }
+
+    /** 도착하면 카드가 뜨는 장소에 붙는 표시 (has_card) */
+    public static String cardChip() {
+        return "카드";
+    }
 }

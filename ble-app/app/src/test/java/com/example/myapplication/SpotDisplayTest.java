@@ -59,7 +59,7 @@ public class SpotDisplayTest {
 
     @Test
     public void buttonsAndWalk() {
-        assertEquals("도보 4분", SpotDisplay.walk(4));
+        assertEquals("약 4분", SpotDisplay.walk(4));
         assertEquals("다음 장소로", SpotDisplay.nextLabel(false));
         assertEquals("투어 마치기", SpotDisplay.nextLabel(true));
         assertEquals("도착", SpotDisplay.arriveLabel(false));

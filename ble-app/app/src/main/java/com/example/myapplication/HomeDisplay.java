@@ -103,10 +103,13 @@ public final class HomeDisplay {
         return (minutes / (60 * 24)) + "일 전";
     }
 
-    /** 카드 아래 요약. 예: "도보 약 12분 · 장소 2곳". 장소 수를 모르면 시간만. */
+    /**
+     * 카드 아래 요약. 예: "약 12분 · 장소 2곳". 장소 수를 모르면 시간만.
+     * 코스 시간은 이동 + 관람 합계라 "도보"라고 하지 않는다. (#52 13번)
+     */
     public static String meta(int totalMinutes, int spotCount) {
-        if (spotCount <= 0) return "도보 약 " + totalMinutes + "분";
-        return "도보 약 " + totalMinutes + "분 · 장소 " + spotCount + "곳";
+        if (spotCount <= 0) return "약 " + totalMinutes + "분";
+        return "약 " + totalMinutes + "분 · 장소 " + spotCount + "곳";
     }
 
     /** 사용자가 입력한 서버 주소를 Retrofit 기본 주소 형태로 맞춘다. 예: "192.168.0.5:8000" → "http://192.168.0.5:8000/" */

@@ -66,6 +66,7 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        TourProgress.init(this); // 방문 기록을 폰에서 읽어 온다 (#37)
         TourMap.configure(this);
 
         setContentView(R.layout.activity_home);
