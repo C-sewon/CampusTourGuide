@@ -6,9 +6,15 @@ import static org.junit.Assert.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 
 public class ArrivalRouterTest {
+
+    @Before
+    public void setUp() {
+        ArrivalRouter.reset(); // 연결과 보관한 센서는 static이라 테스트마다 비운다
+    }
 
     private static HomeApi.Spot spot(int id, int... sensorIds) {
         HomeApi.Spot s = new HomeApi.Spot();
@@ -98,6 +104,63 @@ public class ArrivalRouterTest {
         cs2.spot = noArrival;
         c.spots.add(cs2);
         assertTrue(ArrivalRouter.build(List.of(c)).isEmpty());
+    }
+
+    // ---------- 코스 목록을 받기 전에 도착한 경우 (장소 안내 화면부터 다시 열림) ----------
+
+    @Test
+    public void arrivalBeforeCourseListIsHeldAndReturnedOnFirstUpdate() {
+        List<List<Integer>> returned = new ArrayList<>();
+        ArrivalRouter.setListener(returned::add);
+
+        // 연결이 비어 있을 때 센서 1, 4에 도착: 지금은 장소를 모르니 빈 목록
+        assertTrue(ArrivalRouter.spotIdsOrHold(1).isEmpty());
+        assertTrue(ArrivalRouter.spotIdsOrHold(4).isEmpty());
+        assertTrue(returned.isEmpty());
+
+        // 코스 목록을 받으면 보관한 센서를 도착 순서대로 돌려주고, 그때는 장소를 찾을 수 있다
+        ArrivalRouter.update(realCourses());
+        assertEquals(List.of(List.of(1, 4)), returned);
+        assertEquals(List.of(6), ArrivalRouter.spotIdsOrHold(1));
+        assertEquals(List.of(2), ArrivalRouter.spotIdsOrHold(4));
+    }
+
+    @Test
+    public void heldSensorsAreReturnedOnlyOnce() {
+        List<List<Integer>> returned = new ArrayList<>();
+        ArrivalRouter.setListener(returned::add);
+        ArrivalRouter.spotIdsOrHold(1);
+        ArrivalRouter.spotIdsOrHold(1); // 같은 센서는 한 번만 보관
+
+        ArrivalRouter.update(realCourses());
+        ArrivalRouter.update(realCourses()); // 다시 받아도 또 돌려주지 않음
+        assertEquals(List.of(List.of(1)), returned);
+    }
+
+    @Test
+    public void emptyUpdateDoesNotReleaseHeldSensors() {
+        List<List<Integer>> returned = new ArrayList<>();
+        ArrivalRouter.setListener(returned::add);
+        ArrivalRouter.spotIdsOrHold(5);
+
+        // 빈 목록(목록 받기 실패 등)으로는 연결이 채워지지 않으니 계속 보관
+        ArrivalRouter.update(new ArrayList<>());
+        assertTrue(returned.isEmpty());
+
+        ArrivalRouter.update(realCourses());
+        assertEquals(List.of(List.of(5)), returned);
+    }
+
+    @Test
+    public void nothingIsHeldOnceMappingExists() {
+        List<List<Integer>> returned = new ArrayList<>();
+        ArrivalRouter.setListener(returned::add);
+        ArrivalRouter.update(realCourses());
+
+        // 연결이 있으면 모르는 센서(99)도 보관하지 않는다 (장소가 없는 센서)
+        assertTrue(ArrivalRouter.spotIdsOrHold(99).isEmpty());
+        ArrivalRouter.update(realCourses());
+        assertTrue(returned.isEmpty());
     }
 
     @Test
