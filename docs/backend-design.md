@@ -93,6 +93,7 @@ erDiagram
         text description_en
         float latitude
         float longitude
+        bool has_card "도착하면 앱이 카드를 띄우는 장소인가"
     }
     SPOT_SENSORS {
         int id PK
@@ -106,6 +107,7 @@ erDiagram
         string name
         string name_en
         text description
+        bool is_core "핵심 코스인가 (하나만 true)"
     }
     COURSE_SPOTS {
         int id PK
