@@ -24,22 +24,33 @@ public final class HomeDisplay {
         return String.format(Locale.ROOT, "%.1f°C", rounded);
     }
 
-    /** 추천 이유 한 줄. 기온을 모르면 기온 없이 안내한다. */
+    /** 기온을 모를 때. 서버 규칙(모르면 가장 긴 코스)과 같다 */
+    private static final String UNKNOWN_REASON = "지금은 기온을 알 수 없어 긴 코스를 추천해요";
+
+    /**
+     * 추천 이유 한 줄. 기온을 모르면 기온 없이 안내한다.
+     * 덥거나 추우면 서버가 가장 짧은 "핵심 코스"를 추천한다. (#22에서 이름을 "짧은 코스"에서 바꿈)
+     */
     public static String reason(String condition, Double celsius) {
         if (celsius == null || condition == null || "unknown".equals(condition)) {
-            return "지금은 기온을 알 수 없어 기본 코스를 추천해요";
+            return UNKNOWN_REASON;
         }
         String now = "지금 " + temperature(celsius) + " · ";
         switch (condition) {
             case "hot":
-                return now + "더운 날엔 짧은 코스를 추천해요";
+                return now + "더운 날엔 핵심 코스를 추천해요";
             case "cold":
-                return now + "추운 날엔 짧은 코스를 추천해요";
+                return now + "추운 날엔 핵심 코스를 추천해요";
             case "comfortable":
                 return now + "걷기 좋은 날이라 긴 코스를 추천해요";
             default:
-                return "지금은 기온을 알 수 없어 기본 코스를 추천해요";
+                return UNKNOWN_REASON;
         }
+    }
+
+    /** 서버 없이 추천할 때. serverDown 이면 서버 주소는 있는데 연결이 안 된 것 */
+    public static String offlineReason(boolean serverDown) {
+        return serverDown ? "서버에 연결할 수 없어 기온 없이 추천해요" : UNKNOWN_REASON;
     }
 
     /** 추천 이유 줄의 색. 덥거나 추우면 주의(주황), 쾌적하면 초록, 모르면 회색. */

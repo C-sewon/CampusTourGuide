@@ -33,7 +33,7 @@ public final class CourseDisplay {
         return "이 코스 이어서 걷기";
     }
 
-    /** 장소 순서 목록 제목. 예: "짧은 코스 · 장소 순서" */
+    /** 장소 순서 목록 제목. 예: "핵심 코스 · 장소 순서" */
     public static String stopsTitle(String courseName) {
         return courseName + " · 장소 순서";
     }

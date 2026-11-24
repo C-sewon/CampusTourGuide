@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -25,7 +26,8 @@ import retrofit2.Response;
  * 코스 둘러보기 화면 (프로토타입 "코스 둘러보기"). 홈의 추천 코스 카드에서 연다.
  * 코스 카드를 눌러 고르면 아래에 장소 순서가 나오고, 아래 버튼으로 그 코스를 시작한다.
  * 서버 GET /api/courses/recommend 로 추천 코스를, GET /api/courses 로 코스와 장소를 받는다.
- * 서버 주소가 없으면 [샘플] 데이터를 보여준다. 서버 주소는 제목을 길게 눌러 넣는다 (개발용).
+ * 서버 주소가 없거나 서버가 안 되면 폰에 저장해 둔 목록이나 앱에 넣어 둔 기본 목록(TourData)을 보여준다.
+ * 서버 주소는 제목을 길게 눌러 넣는다 (개발용).
  */
 public class CourseActivity extends AppCompatActivity {
 
@@ -98,7 +100,7 @@ public class CourseActivity extends AppCompatActivity {
     private void load() {
         api = TourServer.api(this);
         if (api == null) {
-            show(TourSamples.courses(), TourSamples.recommendation());
+            showOffline();
             return;
         }
         showMessage("코스를 불러오고 있어요");
@@ -118,24 +120,25 @@ public class CourseActivity extends AppCompatActivity {
         });
     }
 
+    /** 코스 목록은 TourData 가 서버, 폰 저장본, 기본 목록 순서로 가져온다. 서버가 안 되면 추천도 기온 없이 다시 정한다 */
     private void loadCourses(HomeApi requestApi, HomeApi.Recommendation recommendation) {
-        requestApi.courses().enqueue(new Callback<List<HomeApi.Course>>() {
-            @Override
-            public void onResponse(Call<List<HomeApi.Course>> call, Response<List<HomeApi.Course>> res) {
-                if (isGone(requestApi)) return;
-                if (!res.isSuccessful() || res.body() == null) {
-                    showMessage("코스를 받지 못했어요 (" + res.code() + ")");
-                    return;
-                }
-                show(res.body(), recommendation);
-            }
-
-            @Override
-            public void onFailure(Call<List<HomeApi.Course>> call, Throwable t) {
-                if (isGone(requestApi)) return;
-                showMessage("서버에 연결할 수 없어요. 제목을 길게 눌러 주소를 확인해 주세요");
-            }
+        TourData.load(this, requestApi, (list, source) -> {
+            if (isGone(requestApi)) return;
+            boolean fromServer = source == TourData.Source.SERVER;
+            show(list, fromServer ? recommendation : TourData.offlineRecommendation(list));
+            if (!fromServer) toast("서버에 연결할 수 없어 저장해 둔 코스를 보여줘요");
         });
+    }
+
+    /** 서버 주소가 없을 때: 저장본이나 기본 목록, 추천은 기온 없이 */
+    private void showOffline() {
+        List<HomeApi.Course> list = TourData.offline(this).courses;
+        ArrivalRouter.update(list); // 센서 N 도착 → 장소 (#29)
+        show(list, TourData.offlineRecommendation(list));
+    }
+
+    private void toast(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
     private boolean isGone(HomeApi requestApi) {

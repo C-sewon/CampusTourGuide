@@ -168,7 +168,7 @@ copy .env.example .env          # 설정을 바꿀 것이 없으면 생략해도
 - 값이 없는 센서에 연결된 장소(예: 이마트24 건너편)는 `value_source.is_on_site`가 `false`이고 `distance_m`가 나오면 가까운 센서 값을 빌려 쓰는 것이 정상입니다.
 
 **앱 연결**
-- [ ] 앱 제목을 길게 눌러 서버 주소 `http://IPv4주소:8000`을 입력했다. (비우면 앱에 들어 있는 샘플 데이터가 나옵니다)
+- [ ] 앱 제목을 길게 눌러 서버 주소 `http://IPv4주소:8000`을 입력했다. (비우거나 서버에 연결되지 않으면 폰에 저장해 둔 마지막 코스 목록이나 앱에 넣어 둔 기본 목록이 온도 없이 나옵니다)
 - [ ] 홈에서 센서 점의 온도와 추천 코스 카드가 나온다. 장소 이름이 깨지지 않는다.
 - [ ] 폰이 둘 이상이면 모든 폰의 서버 주소를 같은 값으로 맞췄다.
 
@@ -229,7 +229,7 @@ copy .env.example .env          # 설정을 바꿀 것이 없으면 생략해도
 - 결과는 `GET /api/courses`와 **같은 모양**의 JSON입니다. 장소 12곳, 코스 3개, 센서와 장소의 연결(`arrival.sensors`), `has_card`, `is_core`가 들어 있습니다. 앱이 서버 응답을 읽는 코드로 그대로 읽을 수 있습니다.
 - **온도는 비워서 뽑습니다.** (`latest_reading`, `recent_average`, `value_source`가 `null`) 기본 목록에 예전 온도가 들어 있으면 서버가 안 될 때 그 온도가 현재 값처럼 보일 수 있어서입니다. 앱은 온도 칸이 비어 있을 때 "지금은 값을 받을 수 없어요"로 보여 주면 됩니다.
 - 서버가 쓰는 DB(`campus_tour.db`)는 건드리지 않고, 메모리에 따로 만든 DB에서 뽑습니다. 서버를 켜지 않아도 실행되고, Python이 없는 팀원은 저장소에 올라 있는 `docs/tour_default.json`을 그대로 가져가면 됩니다.
-- **장소나 코스를 고치면 다시 뽑아서 `docs/tour_default.json`을 갱신하고 앱 담당에게 알려야 합니다.** 다시 뽑지 않으면 `pytest`의 `test_the_committed_file_matches_the_current_tour_data`가 실패합니다.
+- **장소나 코스를 고치면 다시 뽑아서 `docs/tour_default.json`을 갱신하고 앱 담당에게 알려야 합니다.** 앱은 이 파일을 `ble-app/app/src/main/assets/tour_default.json`으로 복사해 씁니다. (서버, 폰에 저장한 마지막 목록, 이 기본 목록 순서. `TourData`) 다시 뽑지 않으면 `pytest`의 `test_the_committed_file_matches_the_current_tour_data`가 실패합니다.
 
 ## 외부 라이브러리와 데이터 출처
 

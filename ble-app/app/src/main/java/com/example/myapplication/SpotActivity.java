@@ -41,9 +41,6 @@ import org.osmdroid.views.overlay.Polyline;
 import java.util.ArrayList;
 import java.util.List;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 /**
  * 장소 안내 화면 (프로토타입 "장소 안내", 설계 문서 4장 "장소 카드 화면").
@@ -235,31 +232,17 @@ public class SpotActivity extends AppCompatActivity {
 
     // ---------- 데이터 불러오기 ----------
 
+    /**
+     * 코스는 TourData 가 서버, 폰 저장본, 기본 목록 순서로 가져온다. (#37)
+     * 서버가 안 돼도 장소, 길 안내, 도착 체크는 되고 온도만 "값을 받을 수 없어요"로 보인다.
+     * 자동 도착 연결(ArrivalRouter)도 TourData 가 채운다.
+     */
     private void load(int courseId) {
         api = TourServer.api(this);
-        if (api == null) {
-            ArrivalRouter.update(TourSamples.courses()); // 센서 N 도착 → 장소 (#29)
-            setCourse(TourSamples.course(courseId));
-            return;
-        }
         HomeApi requestApi = api;
-        api.courses().enqueue(new Callback<List<HomeApi.Course>>() {
-            @Override
-            public void onResponse(Call<List<HomeApi.Course>> call, Response<List<HomeApi.Course>> res) {
-                if (isFinishing() || isDestroyed() || requestApi != api) return;
-                HomeApi.Course found = null;
-                if (res.isSuccessful() && res.body() != null) {
-                    ArrivalRouter.update(res.body()); // 센서 N 도착 → 장소 (#29)
-                    for (HomeApi.Course c : res.body()) if (c.id == courseId) found = c;
-                }
-                setCourse(found);
-            }
-
-            @Override
-            public void onFailure(Call<List<HomeApi.Course>> call, Throwable t) {
-                if (isFinishing() || isDestroyed() || requestApi != api) return;
-                close("서버에 연결할 수 없어요");
-            }
+        TourData.load(this, requestApi, (courses, source) -> {
+            if (isFinishing() || isDestroyed() || requestApi != api) return;
+            setCourse(TourData.find(courses, courseId));
         });
     }
 
