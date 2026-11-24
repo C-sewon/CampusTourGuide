@@ -168,3 +168,66 @@ def test_the_exception_table_covers_the_situations_the_checklist_names():
     section = exception_section()
     for situation in ("센서 미가동", "연구실 서버에 접속하지 못함", "앱이 우리 서버에 접속하지 못함", "오류값", "값이 오래됨"):
         assert situation in section, f"예외 상황 표에 '{situation}'이 없습니다"
+
+
+# ---------------------------------------------------------------------------------------------
+# 시퀀스 다이어그램 (2장 "주요 흐름")
+# ---------------------------------------------------------------------------------------------
+def sequence_section():
+    text = DOC.read_text(encoding="utf-8")
+    start = text.index("### 주요 흐름 (시퀀스 다이어그램)")
+    end = text.index("\n## ", start)
+    return text[start:end]
+
+
+def sequence_diagrams():
+    """2장의 mermaid sequenceDiagram 블록들(블록 안의 글)."""
+    blocks = re.findall(r"```mermaid\n(.*?)```", sequence_section(), re.DOTALL)
+    return [b for b in blocks if b.lstrip().startswith("sequenceDiagram")]
+
+
+def test_there_are_five_sequence_diagrams():
+    assert len(sequence_diagrams()) == 5
+
+
+@pytest.mark.parametrize("index", range(5))
+def test_sequence_diagram_uses_only_declared_participants_and_balanced_blocks(index):
+    lines = [line.strip() for line in sequence_diagrams()[index].splitlines() if line.strip()][1:]
+    participants = set()
+    depth = 0
+    for line in lines:
+        declared = re.match(r"participant\s+(\w+)\s+as\s+\S", line)
+        if declared:
+            participants.add(declared.group(1))
+            continue
+        if re.match(r"(loop|alt|opt)\b", line):
+            depth += 1
+        elif line == "end":
+            depth -= 1
+            assert depth >= 0, f"end 가 더 많습니다: {line}"
+        elif line.startswith("else") or line.startswith("Note "):
+            pass
+        else:
+            message = re.match(r"(\w+)(-->>|->>)(\w+):\s*\S", line)
+            assert message, f"해석할 수 없는 줄입니다: {line}"
+            assert message.group(1) in participants and message.group(3) in participants, (
+                f"선언하지 않은 참여자가 있습니다: {line}"
+            )
+    assert depth == 0, "loop, alt, opt 가 end 로 닫히지 않았습니다"
+    assert participants, "참여자가 없습니다"
+
+
+def test_sequence_diagrams_avoid_characters_that_break_mermaid():
+    # 메시지 안의 ; 와 # 는 mermaid 가 명령 구분이나 코드로 읽어서 그림이 깨질 수 있다
+    for diagram in sequence_diagrams():
+        assert ";" not in diagram and "#" not in diagram
+
+
+def test_api_paths_in_the_sequence_section_exist():
+    from app import main
+
+    served = {route.path for route in main.app.routes}
+    cited = set(re.findall(r"(?:GET|POST) (/(?:api/|health)[A-Za-z0-9_/{}.-]*)", sequence_section()))
+    assert cited, "시퀀스 다이어그램 절에 우리 서버 API 경로가 없습니다"
+    missing = sorted(path for path in cited if path not in served)
+    assert not missing, f"서버에 없는 API 경로를 가리킵니다: {missing}"
