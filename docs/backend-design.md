@@ -413,6 +413,195 @@ flowchart TD
 
 온도 -20~45도, 습도 0~100%를 벗어난 값은 거절하지 않고 **저장한 뒤 오류값으로 제외**합니다. (앱의 재전송이 같은 요청을 반복하지 않게 하기 위함)
 
+### API 필드와 DB 칸의 대응
+
+API 응답의 모든 필드가 DB의 어느 칸에서 오는지, 또는 어떻게 계산되는지 정리한 표입니다. 앱 담당이 필드의 뜻을 확인하고, 표나 칸을 바꿀 때 어긋나지 않게 하는 데 씁니다.
+
+**"DB 칸 또는 계산" 열 읽는 법**
+- `표.칸`: DB에 저장된 값을 **그대로** 내려줍니다. (예: `readings.temperature`)
+- **계산**: 응답을 만들 때마다 서버가 계산합니다. DB에 저장하지 않습니다.
+- **설정**: 환경변수(7장)의 값입니다.
+- **메모리**: DB가 아니라 서버가 켜져 있는 동안만 보관하는 값입니다. (서버를 다시 켜면 비어 있습니다)
+
+이 표는 `tests/test_design_doc.py`가 확인합니다. 응답 모델에 필드를 추가하거나 빼고 이 표를 안 고치면, 또는 표의 `표.칸`이 실제 DB에 없으면 테스트가 실패합니다.
+
+#### 측정값 (`ReadingOut`) — `latest_reading`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `sensor_id` | `readings.sensor_id` | 센서 번호 |
+| `measured_at` | `readings.measured_at` | 측정 시각(Unix 초, 센서 시계) |
+| `temperature` | `readings.temperature` | 온도(℃) |
+| `humidity` | `readings.humidity` | 습도(%). 연구실 값은 `null` |
+| `age_minutes` | 계산 | (지금 − `measured_at`) ÷ 60, 응답을 만들 때 계산. 미래 시각이면 0 |
+| `is_stale` | 계산 | `age_minutes`가 `STALE_MINUTES`(30) 이상이면 `true` |
+| `is_suspect` | 계산 | 같은 센서의 값이 5건 이상, 10분 이상 같으면 `true`. BLE로 받은 값만 판단 |
+
+- 오류값(온도가 -20~45℃ 밖, 습도가 0~100% 밖, 온도와 습도가 모두 0.0)은 DB에 저장되지만 `latest_reading`으로 고르지 않습니다.
+
+#### 최근 평균 (`AverageOut`) — `recent_average`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `temperature` | 계산 | 최근 `AVG_WINDOW_MINUTES`(30)분 안의 정상 `readings.temperature` 평균 |
+| `humidity` | 계산 | 같은 구간의 `readings.humidity` 평균. 값이 있는 것만 쓰고, 없으면 `null` |
+| `count` | 계산 | 평균에 쓴 측정값 개수 |
+| `window_minutes` | 설정 | `AVG_WINDOW_MINUTES` |
+
+- 측정값이 없거나 `is_suspect`이면 `recent_average` 자체가 `null`입니다.
+
+#### 센서 (`SensorOut`) — `GET /api/sensors`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `sensor_id` | `sensors.id` | opensrc는 1~5, 연구실 센서는 100 + 연구실 번호 |
+| `kind` | `sensors.kind` | `opensrc` 또는 `lab` |
+| `ble_name` | `sensors.ble_name` | 연구실 센서는 `null` |
+| `mac` | `sensors.mac` | 연구실 센서는 `null` |
+| `location` | `sensors.location` | 설치 위치 |
+| `lab_name` | `sensors.lab_name` | 연구실 API의 센서 이름 |
+| `latitude` | `sensors.latitude` | 센서 좌표(위도) |
+| `longitude` | `sensors.longitude` | 센서 좌표(경도) |
+
+#### 센서 상태 (`SensorStatusOut`) — `GET /api/sensors/status`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `sensor_id` | `sensors.id` | 등록되지 않았어도 측정값이 있으면 `readings.sensor_id`로 나옵니다 |
+| `kind` | `sensors.kind` | 등록되지 않은 센서는 `null` |
+| `ble_name` | `sensors.ble_name` | 등록되지 않은 센서는 `null` |
+| `mac` | `sensors.mac` | 등록되지 않은 센서는 `null` |
+| `location` | `sensors.location` | 등록되지 않은 센서는 `null` |
+| `spot_names` | 계산 | `spot_sensors`로 이 센서를 쓰는 `spots.name` 목록 |
+| `status` | 계산 | `ok`, `stale`, `suspect`, `invalid`, `no_data` 중 가장 먼저 해당하는 것 |
+| `latest_reading` | 계산 | 위 측정값(`ReadingOut`)과 같음. 값이 없으면 `null` |
+| `last_received_at` | 계산 | 이 센서 `readings.received_at`의 최댓값 |
+
+#### 장소에 설치된 센서 (`SpotSensorOut`) — `arrival.sensors[]`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `sensor_id` | `sensors.id` | 센서 번호 |
+| `ble_name` | `sensors.ble_name` | BLE 이름 |
+| `mac` | `sensors.mac` | MAC 주소 |
+| `location` | `sensors.location` | 설치 위치 |
+
+- `spot_sensors.on_site`가 `true`인 연결(그 장소에 설치된 센서)만 들어갑니다.
+
+#### 도착 방식 (`ArrivalOut`) — `arrival`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `method` | 계산 | 설치된 센서(`spot_sensors.on_site`가 `true`)가 있으면 `ble_auto`, 없으면 `manual` |
+| `sensors` | 계산 | 설치된 센서 목록(위 `SpotSensorOut`). `manual`이면 빈 목록 |
+
+#### 값의 출처 (`ValueSourceOut`) — `value_source`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `sensor_id` | 계산 | 온도를 낸 센서의 `sensors.id`. 장소에 연결된 센서나 빌려 온 센서 중 고른 것 |
+| `ble_name` | `sensors.ble_name` | 고른 센서의 BLE 이름 |
+| `lab_name` | `sensors.lab_name` | 고른 센서의 연구실 이름 |
+| `location` | `sensors.location` | 고른 센서의 설치 위치 |
+| `is_on_site` | 계산 | 장소에 연결된 센서면 `spot_sensors.on_site`, 가까운 센서 값을 빌렸으면 `false` |
+| `distance_m` | 계산 | 장소(`spots.latitude`, `spots.longitude`)와 센서(`sensors.latitude`, `sensors.longitude`) 사이 거리(m, 하버사인). 좌표를 모르면 `null` |
+
+#### 장소 (`SpotOut`) — `GET /api/spots`, `/api/courses`의 `spot`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `id` | `spots.id` | 장소 번호 |
+| `name` | `spots.name` | 이름 |
+| `name_en` | `spots.name_en` | 영어 이름 |
+| `description` | `spots.description` | 소개 |
+| `description_en` | `spots.description_en` | 영어 소개 |
+| `latitude` | `spots.latitude` | 위도 |
+| `longitude` | `spots.longitude` | 경도 |
+| `has_card` | `spots.has_card` | 도착하면 카드를 띄우는 장소인가 |
+| `arrival` | 계산 | 위 도착 방식(`ArrivalOut`) |
+| `latest_reading` | 계산 | 장소에 보여 줄 현재 온도. 연결된 센서의 값을 우선순위로 보고, 없으면 200m 안의 가까운 센서 값을 빌림. 없으면 `null` |
+| `recent_average` | 계산 | 위 최근 평균(`AverageOut`). 온도를 낸 센서 기준 |
+| `value_source` | 계산 | 위 값의 출처(`ValueSourceOut`). 온도가 없으면 `null` |
+
+#### 코스의 지점 (`CourseSpotOut`) — `spots[]`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `position` | `course_spots.position` | 코스 안의 순서(1부터) |
+| `minutes` | `course_spots.minutes` | 이전 지점에서 이동 + 이 지점 관람(분) |
+| `spot` | 계산 | `course_spots.spot_id`의 장소(`SpotOut`) |
+
+#### 코스 (`CourseOut`) — `GET /api/courses`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `id` | `courses.id` | 코스 번호 |
+| `name` | `courses.name` | 이름 |
+| `name_en` | `courses.name_en` | 영어 이름 |
+| `description` | `courses.description` | 소개 |
+| `is_core` | `courses.is_core` | 핵심 코스인가(하나만 `true`) |
+| `total_minutes` | 계산 | 이 코스 `course_spots.minutes`의 합 |
+| `spots` | 계산 | 이 코스의 지점(`CourseSpotOut`)을 `position` 순서로 |
+
+#### 코스 추천 (`RecommendationOut`) — `GET /api/courses/recommend`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `condition` | 계산 | 평균 기온을 `COLD_MAX_CELSIUS`(5), `HOT_MIN_CELSIUS`(27)와 비교한 `cold`, `hot`, `comfortable`, `unknown` |
+| `temperature` | 계산 | 모든 코스의 장소를 합쳐 같은 센서는 한 번만 센 현재 기온 평균. 알 수 없으면 `null` |
+| `sample_count` | 계산 | 평균에 쓴 값의 수 |
+| `thresholds` | 설정 | 기준 기온(`ThresholdsOut`) |
+| `recommended_course_id` | 계산 | 추천 코스의 `courses.id`. 코스가 없으면 `null` |
+| `recommended_course_name` | 계산 | 추천 코스의 `courses.name`. 코스가 없으면 `null` |
+| `reason` | 계산 | 화면에 그대로 보여 줄 수 있는 추천 이유 문장 |
+| `courses` | 계산 | 모든 코스의 요약(`CourseChoiceOut`) |
+
+#### 기준 기온 (`ThresholdsOut`) — `thresholds`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `cold_max` | 설정 | `COLD_MAX_CELSIUS` (이 기온 이하면 춥다) |
+| `hot_min` | 설정 | `HOT_MIN_CELSIUS` (이 기온 이상이면 덥다) |
+
+#### 코스 요약 (`CourseChoiceOut`) — 추천 응답의 `courses[]`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `id` | `courses.id` | 코스 번호 |
+| `name` | `courses.name` | 이름 |
+| `total_minutes` | 계산 | 이 코스 `course_spots.minutes`의 합 |
+| `average_temperature` | 계산 | 이 코스의 장소만으로 구한 현재 기온 평균. 같은 센서는 한 번만. 알 수 없으면 `null` |
+| `recommended` | 계산 | 추천 코스이면 `true` |
+
+#### 연구실 가져오기 상태 (`LabSyncStatusOut`) — `GET /api/lab-sync/status`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `enabled` | 설정 | `LAB_SYNC_ENABLED` |
+| `interval_seconds` | 설정 | `LAB_SYNC_SECONDS` |
+| `url` | 설정 | `LAB_SYNC_URL` |
+| `last_attempt` | 메모리 | 마지막으로 시도한 시각(Unix 초). 서버를 켠 뒤 한 번도 안 했으면 `null` |
+| `last_success` | 메모리 | 마지막으로 성공한 시각. 성공한 적이 없으면 `null` |
+| `last_error` | 메모리 | 마지막 시도가 실패했다면 원인. 성공했으면 `null` |
+| `last_result` | 메모리 | 마지막 성공 결과(`LabSyncResultOut`) |
+
+#### 연구실 가져오기 결과 (`LabSyncResultOut`) — `last_result`
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `fetched` | 메모리 | 연구실 API가 준 항목 수 |
+| `new_sensors` | 메모리 | 새로 등록한 연구실 센서(`sensors`에 추가) |
+| `unknown_sensor` | 메모리 | 센서 이름 형식이 다르거나 위치가 없어 건너뜀 |
+| `not_fresh` | 메모리 | 1시간 이내 갱신이 아니라 건너뜀 |
+| `invalid` | 메모리 | 시각이나 온도를 읽을 수 없어 건너뜀 |
+| `duplicate` | 메모리 | 이미 저장된 값 |
+| `stored` | 메모리 | 새로 저장한 값(`readings`에 추가) |
+
+#### 측정값 업로드 요청 (`ReadingIn`) — `POST /api/readings`의 본문
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `ble_name` | `sensors.ble_name` | 센서를 찾는 데 씁니다. `mac`이 없을 때만 이 이름으로 찾음 |
+| `mac` | `sensors.mac` | 센서를 찾는 데 씁니다. 있으면 MAC으로만 찾음 |
+| `measured_at` | `readings.measured_at` | 측정 시각. (센서, 측정 시각)이 같으면 중복 |
+| `temperature` | `readings.temperature` | 온도 |
+| `humidity` | `readings.humidity` | 습도 |
+| `aqi` | `readings.aqi` | 공기질 지수 |
+| `tvoc` | `readings.tvoc` | 가스 농도(ppb) |
+| `eco2` | `readings.eco2` | 이산화탄소(ppm) |
+| `rssi` | `readings.rssi` | 수신 신호 세기(dBm) |
+
+- 요청에 없는 `readings.received_at`(서버가 받은 시각)과 `readings.source`(`ble`)는 서버가 채웁니다.
+
+#### 측정값 업로드 응답 (`ReadingResult`) — `POST /api/readings`의 응답
+| API 필드 | DB 칸 또는 계산 | 설명 |
+| --- | --- | --- |
+| `status` | 계산 | 새로 저장하면 `created`, 같은 센서와 측정 시각이 이미 있으면 `duplicate` |
+
 ## 7. 설정 (환경변수)
 
 | 이름 | 기본값 | 설명 |
@@ -434,7 +623,7 @@ flowchart TD
 
 ## 8. 테스트
 
-pytest 119개가 통과합니다. (`pytest` 한 줄로 실행)
+pytest 239개가 통과합니다. (`pytest` 한 줄로 실행)
 
 | 영역 | 확인하는 것 |
 | --- | --- |
@@ -445,6 +634,8 @@ pytest 119개가 통과합니다. (`pytest` 한 줄로 실행)
 | 가까운 센서 빌리기 | 200m 기준, 가장 가까운 정상 센서 선택, 오래된 이웃 제외, 좌표 없는 장소, 연구실 센서 빌리기 |
 | 코스 추천 | 춥다·덥다·쾌적·알 수 없음 기준(경계값 포함), 가장 짧은/긴 코스 선택과 동점 처리, 평균에서 같은 센서 한 번만 세기, 오래된 값 제외, 코스가 없을 때 |
 | 설정 | `.env.example`이 실제 설정·기본값과 일치 |
+| 설계 문서 | ERD의 표와 칸이 실제 DB와 같음, API 필드와 DB 칸의 대응표가 요청·응답 모델의 모든 필드를 담고 DB 칸이 실제로 있음 |
+| 시연 전 점검과 기본 코스 목록 | 점검 스크립트의 정상·주의·실패 판정, 앱에 넣을 기본 코스 목록이 서버 응답과 같음 |
 
 ## 9. 제한과 미정 사항
 

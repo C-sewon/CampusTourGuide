@@ -62,3 +62,75 @@ def test_the_core_and_card_columns_are_documented():
 def test_models_import_registers_all_tables():
     # models 를 import 하지 않으면 Base 에 표가 등록되지 않아 위 테스트가 비어 버린다
     assert models.Course.__tablename__ in model_columns()
+
+
+# ---------------------------------------------------------------------------------------------
+# API 필드와 DB 칸의 대응표 (6장 "API 필드와 DB 칸의 대응")
+# ---------------------------------------------------------------------------------------------
+import inspect
+
+from pydantic import BaseModel
+
+from app import recommend, schemas
+
+
+def response_models():
+    """대응표에 있어야 하는 모든 요청·응답 모델(app/schemas.py, app/recommend.py)."""
+    found = {}
+    for module in (schemas, recommend):
+        for name, cls in inspect.getmembers(module, inspect.isclass):
+            if issubclass(cls, BaseModel) and cls is not BaseModel and cls.__module__ == module.__name__:
+                found[name] = cls
+    return found
+
+
+def mapping_section():
+    """대응표 안의 모델 이름 -> 표의 첫 칸(API 필드 이름) 목록, 그리고 표 전체 글."""
+    text = DOC.read_text(encoding="utf-8")
+    start = text.index("### API 필드와 DB 칸의 대응")
+    end = text.index("\n## ", start)
+    body = text[start:end]
+    sections: dict[str, list[str]] = {}
+    current = None
+    for line in body.splitlines():
+        heading = re.match(r"####\s+.*\(`([A-Za-z]+)`\)", line)
+        if heading:
+            current = heading.group(1)
+            sections[current] = []
+        elif line.startswith("#"):
+            current = None
+        elif current:
+            row = re.match(r"\|\s*`([a-z_0-9]+)`\s*\|", line)
+            if row:
+                sections[current].append(row.group(1))
+    return sections, body
+
+
+def test_every_request_and_response_model_is_in_the_mapping_table():
+    sections, _ = mapping_section()
+    missing = sorted(set(response_models()) - set(sections))
+    extra = sorted(set(sections) - set(response_models()))
+    assert not missing, f"대응표에 없는 모델 {missing}. docs/backend-design.md 6장의 대응표에 추가해 주세요."
+    assert not extra, f"코드에 없는 모델이 대응표에 있습니다 {extra}"
+
+
+@pytest.mark.parametrize("name", sorted(response_models()))
+def test_mapping_table_lists_exactly_the_fields_of_each_model(name):
+    sections, _ = mapping_section()
+    fields = set(response_models()[name].model_fields)
+    listed = set(sections.get(name, []))
+    missing = sorted(fields - listed)
+    extra = sorted(listed - fields)
+    assert not missing and not extra, (
+        f"{name}: 대응표에 없는 필드 {missing}, 코드에 없는 필드 {extra}. docs/backend-design.md 의 대응표를 고쳐 주세요."
+    )
+
+
+def test_every_table_dot_column_in_the_mapping_table_exists_in_the_database():
+    _, body = mapping_section()
+    tables = model_columns()
+    refs = set(re.findall(r"`([a-z_]+)\.([a-z_]+)`", body))
+    checked = [(t, c) for t, c in refs if t in tables]
+    assert checked, "대응표에 DB 칸(표.칸) 표시가 하나도 없습니다"
+    unknown = sorted((t, c) for t, c in checked if c not in tables[t])
+    assert not unknown, f"대응표가 가리키는 DB 칸이 실제로 없습니다: {unknown}"
