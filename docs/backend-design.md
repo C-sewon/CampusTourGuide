@@ -42,6 +42,132 @@ flowchart LR
 - 앱이 BLE로 읽은 값(습도, 공기질 포함)을 우리 서버에 직접 올리는 경로는 **보조**입니다.
 - 앱은 BLE로 오픈소스 센서(`opensrc1~5`)의 신호 세기를 보고 도착을 판정합니다. 서버는 어느 센서가 어느 장소의 것인지(`arrival`)만 알려줍니다.
 
+### 주요 흐름 (시퀀스 다이어그램)
+
+위 구성 그림이 "어떤 부품이 어디로 이어지는가"라면, 아래 그림은 **그 연결을 따라 일이 어떤 순서로 일어나는가**입니다. 위에서 아래로 내려갈수록 나중에 일어난 일이고, 실선 화살표는 요청이나 전달, 점선 화살표는 응답입니다.
+
+| 기능 | 나타나는 그림 | 관련 API (6장) |
+| --- | --- | --- |
+| 센서 값 수집, 가공, 장소별 온도 | 흐름 1 | `GET /api/spots`, `GET /api/courses`, `GET /api/sensors/status` |
+| 연구실 서버가 안 될 때의 동작 | 흐름 2 | `GET /api/lab-sync/status` |
+| 앱의 코스 목록 가져오기, 도착 판정, 방문 기록, 카드 | 흐름 3 | `GET /api/courses` |
+| 환경 맞춤 코스 추천 | 흐름 4 | `GET /api/courses/recommend` |
+| 서버 시작과 DB 준비 | 흐름 5 | `GET /health` |
+
+#### 흐름 1. 센서 값 수집부터 앱 화면까지
+```mermaid
+sequenceDiagram
+    participant PI as 센서 Pi
+    participant LAB as 연구실 서버
+    participant SRV as 우리 서버
+    participant DB as 우리 DB
+    participant APP as 앱 폰
+
+    PI->>LAB: 온도와 CO2 전송
+    loop 60초마다
+        SRV->>LAB: GET /sensor/api/map
+        LAB-->>SRV: 센서별 최신 값과 위치
+        SRV->>DB: 1시간 이내 값만 저장 (같은 값은 건너뜀)
+    end
+    APP->>SRV: GET /api/courses
+    SRV->>DB: 장소에 연결된 센서의 측정값 조회
+    DB-->>SRV: 측정값
+    Note over SRV: 오류값과 오래된 값은 빼고 장소의 온도를 정함 (없으면 200m 안의 가까운 센서 값)
+    SRV-->>APP: 장소, 온도, 값의 출처, 도착 방식
+```
+
+#### 흐름 2. 연구실 서버가 안 될 때
+```mermaid
+sequenceDiagram
+    participant LAB as 연구실 서버
+    participant SRV as 우리 서버
+    participant DB as 우리 DB
+    participant APP as 앱 폰
+
+    SRV->>LAB: GET /sensor/api/map
+    Note over SRV,LAB: 응답이 없거나 오류 (시간 초과 10초)
+    SRV->>SRV: 오류를 last_error에 기록하고 서비스는 계속
+    Note over SRV: 60초 뒤에 다시 시도
+    APP->>SRV: GET /api/courses
+    SRV->>DB: 저장된 마지막 측정값 조회
+    DB-->>SRV: 마지막 값
+    alt 마지막 값이 30분 이내
+        SRV-->>APP: 마지막 온도 (is_stale false)
+    else 30분 넘게 값이 안 들어옴
+        SRV-->>APP: 마지막 온도 (is_stale true)
+        Note over APP: 최신 값이 아닐 수 있어요 표시
+    end
+```
+
+#### 흐름 3. 앱 시작, 코스 목록, 도착과 방문 기록
+```mermaid
+sequenceDiagram
+    participant SN as 센서 opensrc
+    participant APP as 앱 폰
+    participant PH as 폰 저장소
+    participant SRV as 우리 서버
+
+    APP->>PH: 저장해 둔 코스 목록 또는 기본 코스 목록 읽기
+    PH-->>APP: 센서와 장소의 연결
+    Note over APP: 서버를 기다리지 않고 센서와 장소의 연결을 먼저 채움
+    APP->>SRV: GET /api/courses
+    alt 서버가 응답함
+        SRV-->>APP: 장소, 코스, 온도
+        APP->>PH: 온도를 뺀 목록을 저장
+    else 서버가 안 됨
+        Note over APP: 저장본 또는 기본 목록을 그대로 쓰고 온도는 값을 받을 수 없어요로 보임
+    end
+    SN-->>APP: BLE 신호 (신호 세기 RSSI)
+    Note over APP: 최근 신호 평균이 -70 dBm보다 세면 도착으로 판정
+    APP->>PH: 장소와 방문 시각 기록
+    opt 그 장소의 has_card가 true
+        Note over APP: 카드 표시
+    end
+    Note over APP,SRV: 도착 판정과 방문 기록은 폰 안에서만 하고 서버로 보내지 않음
+```
+- 이 흐름의 **저장본, 기본 목록, 방문 기록, 카드**는 앱 기능이고 구현 중입니다. (이슈 #37, PR #49, #54) 서버가 하는 일은 `GET /api/courses`로 코스 목록을 주는 것까지입니다.
+
+#### 흐름 4. 환경 맞춤 코스 추천
+```mermaid
+sequenceDiagram
+    participant APP as 앱 폰
+    participant SRV as 우리 서버
+    participant DB as 우리 DB
+
+    APP->>SRV: GET /api/courses/recommend
+    SRV->>DB: 모든 코스의 장소와 장소별 현재 온도 조회
+    DB-->>SRV: 코스, 장소, 측정값
+    Note over SRV: 오래된 값은 빼고 같은 센서는 한 번만 넣어 평균 기온을 구함
+    alt 평균이 5도 이하 또는 27도 이상
+        Note over SRV: 가장 짧은 코스를 고름 (핵심 코스)
+    else 5도와 27도 사이
+        Note over SRV: 가장 긴 코스를 고름 (정문 코스)
+    else 기온을 알 수 없음
+        Note over SRV: 기본으로 가장 긴 코스를 고름
+    end
+    SRV-->>APP: condition, temperature, recommended_course_id, reason
+```
+
+#### 흐름 5. 서버 시작
+```mermaid
+sequenceDiagram
+    participant OP as 운영자 노트북
+    participant SRV as 우리 서버
+    participant DB as 우리 DB
+    participant LAB as 연구실 서버
+
+    OP->>SRV: 서버 시작 (uvicorn)
+    SRV->>DB: DB 표 구조 확인
+    alt 예전 구조
+        SRV-->>OP: campus_tour.db를 지우라는 안내를 내고 멈춤
+    else 현재 구조
+        SRV->>DB: 표 만들기, DB가 비어 있으면 센서와 장소와 코스 넣기
+        SRV->>LAB: 60초마다 센서 값 가져오기 시작
+        OP->>SRV: GET /health
+        SRV-->>OP: status ok
+    end
+```
+
 ## 3. 기술 스택
 
 | 구분 | 사용 |
@@ -623,7 +749,7 @@ API 응답의 모든 필드가 DB의 어느 칸에서 오는지, 또는 어떻�
 
 ## 8. 테스트
 
-pytest 282개가 통과합니다. (`pytest` 한 줄로 실행)
+pytest 290개가 통과합니다. (`pytest` 한 줄로 실행)
 
 | 영역 | 확인하는 것 |
 | --- | --- |
@@ -634,7 +760,7 @@ pytest 282개가 통과합니다. (`pytest` 한 줄로 실행)
 | 가까운 센서 빌리기 | 200m 기준, 가장 가까운 정상 센서 선택, 오래된 이웃 제외, 좌표 없는 장소, 연구실 센서 빌리기 |
 | 코스 추천 | 춥다·덥다·쾌적·알 수 없음 기준(경계값 포함), 가장 짧은/긴 코스 선택과 동점 처리, 평균에서 같은 센서 한 번만 세기, 오래된 값 제외, 코스가 없을 때 |
 | 설정 | `.env.example`이 실제 설정·기본값과 일치 |
-| 설계 문서 | ERD의 표와 칸이 실제 DB와 같음, API 필드와 DB 칸의 대응표가 요청·응답 모델의 모든 필드를 담고 DB 칸이 실제로 있음, 예외 상황 표가 가리키는 테스트가 실제로 있음 |
+| 설계 문서 | ERD의 표와 칸이 실제 DB와 같음, API 필드와 DB 칸의 대응표가 요청·응답 모델의 모든 필드를 담고 DB 칸이 실제로 있음, 예외 상황 표가 가리키는 테스트가 실제로 있음, 시퀀스 다이어그램의 문법과 API 경로가 맞음 |
 | 시연 전 점검과 기본 코스 목록 | 점검 스크립트의 정상·주의·실패 판정, 앱에 넣을 기본 코스 목록이 서버 응답과 같음 |
 
 ## 9. 예외 상황과 동작
