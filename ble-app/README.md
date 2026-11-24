@@ -159,7 +159,7 @@ Android 빌드 도구는 경로에 한글 등 ASCII가 아닌 문자가 있으�
 |---|---|
 | `TourScanner.java` | 앱 전체 BLE 스캐너. 센서 거르기, 13바이트 읽기, 도착 판정, 업로드. 화면은 `Listener`로 알림을 받음 |
 | `ScanLease.java` | 스캔을 켜고 끄는 시점. 화면을 넘길 때 3초 동안 끄지 않음 (안드로이드는 30초 안에 스캔을 5번 넘게 시작하면 막아 버림) |
-| `ArrivalRouter.java` | "센서 N 도착" → 그 센서가 설치된 모든 장소. 서버 코스 데이터의 `arrival.sensors`를 씀 |
+| `ArrivalRouter.java` | "센서 N 도착" → 그 센서가 설치된 모든 장소. 서버 코스 데이터의 `arrival.sensors`를 씀. 코스 목록을 받기 전에 도착한 센서는 보관했다가 목록을 받으면 기록 |
 | `LabUploader.java` | 연구실 2번 API 업로드 (예전에는 `MainActivity` 안에 있었음) |
 | `ScanState.java` | 스캔 상태와 홈 "자동 감지" 칩 문구 |
 

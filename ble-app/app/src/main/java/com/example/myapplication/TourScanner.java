@@ -34,6 +34,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * - 센서 N 도착 → 그 센서가 설치된 모든 장소(ArrivalRouter)를 TourProgress에 자동 도착으로 기록한다.
  *   지금 안내 중인 장소가 아니어도 기록한다. 이미 기록된 장소는 TourProgress가 무시한다. (같은 장소는 한 번만)
  * - 새로 기록된 장소만 onSpotArrived로 알린다. 카드를 띄울지는 화면이 정한다. (has_card)
+ * - 코스 목록을 받기 전에 도착하면(장소 안내 화면부터 다시 열린 경우 등) 그 센서를 보관했다가 목록을 받으면 기록한다.
  *
  * 모든 메서드와 알림은 메인 스레드에서 불린다.
  */
@@ -115,6 +116,10 @@ public final class TourScanner {
                 for (Listener l : listeners) l.onSensorLeave(sensorId);
             }
         });
+        // 코스 목록을 받기 전에 도착한 센서는 ArrivalRouter가 보관해 두었다가, 연결이 채워지면 돌려준다
+        ArrivalRouter.setListener(sensorIds -> main.post(() -> {
+            for (int sensorId : sensorIds) recordSensorArrival(sensorId);
+        }));
         this.lease = new ScanLease(this::startScan, this::stopScan, new ScanLease.Scheduler() {
             @Override
             public Object schedule(Runnable task, long delayMs) {
@@ -165,9 +170,10 @@ public final class TourScanner {
     /**
      * 센서 N 도착을 장소 도착으로 기록한다. 안내 중인 장소가 아니어도 기록한다. (#37)
      * 새로 기록된 장소만 onSpotArrived로 알린다.
+     * 코스 목록을 아직 받지 못해 센서-장소 연결이 비어 있으면, 연결이 채워진 뒤에 다시 기록한다. (ArrivalRouter)
      */
     public void recordSensorArrival(int sensorId) {
-        for (int spotId : ArrivalRouter.spotIdsForSensor(sensorId)) {
+        for (int spotId : ArrivalRouter.spotIdsOrHold(sensorId)) {
             if (TourProgress.markArrived(spotId, false)) {
                 for (Listener l : listeners) l.onSpotArrived(spotId, sensorId);
             }
