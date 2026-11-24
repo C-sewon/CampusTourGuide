@@ -623,7 +623,7 @@ API 응답의 모든 필드가 DB의 어느 칸에서 오는지, 또는 어떻�
 
 ## 8. 테스트
 
-pytest 239개가 통과합니다. (`pytest` 한 줄로 실행)
+pytest 282개가 통과합니다. (`pytest` 한 줄로 실행)
 
 | 영역 | 확인하는 것 |
 | --- | --- |
@@ -634,10 +634,58 @@ pytest 239개가 통과합니다. (`pytest` 한 줄로 실행)
 | 가까운 센서 빌리기 | 200m 기준, 가장 가까운 정상 센서 선택, 오래된 이웃 제외, 좌표 없는 장소, 연구실 센서 빌리기 |
 | 코스 추천 | 춥다·덥다·쾌적·알 수 없음 기준(경계값 포함), 가장 짧은/긴 코스 선택과 동점 처리, 평균에서 같은 센서 한 번만 세기, 오래된 값 제외, 코스가 없을 때 |
 | 설정 | `.env.example`이 실제 설정·기본값과 일치 |
-| 설계 문서 | ERD의 표와 칸이 실제 DB와 같음, API 필드와 DB 칸의 대응표가 요청·응답 모델의 모든 필드를 담고 DB 칸이 실제로 있음 |
+| 설계 문서 | ERD의 표와 칸이 실제 DB와 같음, API 필드와 DB 칸의 대응표가 요청·응답 모델의 모든 필드를 담고 DB 칸이 실제로 있음, 예외 상황 표가 가리키는 테스트가 실제로 있음 |
 | 시연 전 점검과 기본 코스 목록 | 점검 스크립트의 정상·주의·실패 판정, 앱에 넣을 기본 코스 목록이 서버 응답과 같음 |
 
-## 9. 제한과 미정 사항
+## 9. 예외 상황과 동작
+
+센서가 안 돌거나, 통신이 실패하거나, 값이 이상할 때 서버와 앱이 어떻게 동작하는지 정리한 표입니다. "확인" 열은 그 동작을 확인하는 테스트(`파일::테스트 이름`)입니다. 이 표가 가리키는 테스트가 실제로 있는지는 `tests/test_design_doc.py`가 확인합니다.
+
+- **앱** 열은 앱 담당이 확인해야 하는 내용입니다. (이슈 #52) 아직 머지되지 않은 앱 기능은 "구현 중"이라고 적었습니다.
+- 서버가 하는 일은 "무엇을 감지하고 어떻게 처리하는가"이고, 사용자에게 보이는 것은 앱 화면 기준입니다.
+
+### A. 센서 쪽 문제
+| 상황 | 서버가 하는 일 | 앱 (화면) | 확인 |
+| --- | --- | --- | --- |
+| **센서 미가동** (값을 받은 적이 없음) | 센서 상태를 `no_data`로 표시합니다. 장소의 온도는 연결된 다른 센서, 그래도 없으면 200m 안의 가까운 센서 값을 빌립니다. 모두 없으면 `latest_reading`, `recent_average`, `value_source`가 `null`입니다. | "지금은 값을 받을 수 없어요" | `tests/test_api.py::test_registered_sensor_without_readings_is_no_data`<br>`tests/test_spot_sensors.py::test_spot_without_value_has_no_source`<br>`tests/test_borrow_nearby_sensors.py::test_dead_sensor_spot_borrows_the_nearest_fresh_sensor` |
+| **값이 오래됨** (30분 이상) | `is_stale`을 `true`로 표시합니다. 새 값이 있는 다른 센서를 먼저 쓰고, 모두 오래됐으면 가장 최근 값을 오래됨 표시와 함께 보여 줍니다. 가까운 센서도 오래된 값은 빌리지 않고, **코스 추천의 평균에도 쓰지 않습니다.** | "최신 값이 아닐 수 있어요" | `tests/test_api.py::test_stale_flag_follows_threshold`<br>`tests/test_spot_sensors.py::test_most_recent_value_is_shown_as_stale_when_every_sensor_is_stale`<br>`tests/test_borrow_nearby_sensors.py::test_stale_neighbors_are_not_borrowed`<br>`tests/test_recommend.py::test_stale_values_are_not_used_so_the_condition_is_unknown` |
+| **같은 값만 계속 옴** (센서가 멈춘 것으로 의심) | BLE로 받은 값이 같은 값으로 5건 이상, 10분 이상 이어지면 `is_suspect`를 `true`로 표시합니다. 값은 그대로 저장하고 보여 주지만 `recent_average`는 `null`입니다. 연구실 값은 정수라 같은 값이 이어질 수 있어서 판단하지 않습니다. | 온도는 그대로 보임 | `tests/test_api.py::test_fixed_value_sensor_is_flagged_and_not_averaged`<br>`tests/test_api.py::test_lab_temperature_staying_the_same_is_not_a_fixed_value`<br>`tests/test_processing.py::test_fixed_run_needs_enough_time` |
+| **오류값** (범위 밖, 온도와 습도가 모두 0.0, 73℃ 같은 고장 값) | 거절하지 않고 **저장한 뒤 제외**합니다. 최신값, 평균, 고정값 판정, 코스 추천에 쓰지 않습니다. 오류값만 보내는 센서는 `invalid`로 표시합니다. 거절하지 않는 이유는 앱의 재전송 큐가 같은 요청을 반복하지 않게 하려는 것입니다. | 오류값은 보이지 않고, 다른 센서나 "값을 받을 수 없어요" | `tests/test_api.py::test_out_of_range_reading_is_stored_but_ignored`<br>`tests/test_api.py::test_implausible_outdoor_temperatures_are_ignored`<br>`tests/test_api.py::test_all_zero_reading_is_stored_but_ignored_for_latest_and_average`<br>`tests/test_api.py::test_sensor_sending_only_zeros_has_invalid_status`<br>`tests/test_recommend.py::test_a_broken_sensor_reading_does_not_turn_the_day_hot` |
+| **측정 시각이 미래** (센서 시계가 앞섬) | `age_minutes`를 0으로 처리해 음수가 나오지 않게 합니다. 연구실 값 중 미래 시각인 항목은 건너뜁니다. | 영향 없음 | `tests/test_processing.py::test_age_minutes_floors_and_clamps_future`<br>`tests/test_lab_sync.py::test_sync_skips_unreadable_and_future_rows` |
+| **센서 시계가 서버와 크게 다름** | 서버가 값을 받은 시각(`last_received_at`)과 센서의 측정 시각(`measured_at`)을 모두 보여 줍니다. 크게 다르면 센서 시계를 의심할 수 있습니다. | 영향 없음 | 센서 상태 API(`/api/sensors/status`)로 확인 |
+| **장소에 좌표가 없음** | 가까운 센서를 찾지 못해 값을 빌리지 못하고, `distance_m`는 `null`입니다. 실제 투어 데이터의 장소 12곳은 모두 좌표가 있습니다. | 센서가 있는 장소만 온도가 나옴 | `tests/test_borrow_nearby_sensors.py::test_spot_without_coordinates_cannot_borrow`<br>`tests/test_tour_data.py::test_every_spot_has_coordinates` |
+| **센서 위치 이름이 현장과 반대** (사례: #43, 센서 2·3) | 장소와 센서의 연결과 좌표는 `app/tour_data.py`에서 정합니다. 현장 확인으로 바로잡고, 연결을 바꾸면 앱에 넣을 기본 코스 목록을 다시 뽑습니다. (PR #47) | 도착이 맞는 장소로 처리됨 | `tests/test_tour_data.py::test_the_sensor_at_each_named_place_matches_the_field_check`<br>`tests/test_export_tour.py::test_the_committed_file_matches_the_current_tour_data` |
+
+### B. 연구실 서버 쪽 문제
+| 상황 | 서버가 하는 일 | 앱 (화면) | 확인 |
+| --- | --- | --- | --- |
+| **연구실 서버에 접속하지 못함** (응답 없음, 시간 초과, 이상한 응답) | 오류를 잡아서 서비스를 계속하고, **DB에 저장된 마지막 값**을 계속 보여 줍니다. 원인은 `/api/lab-sync/status`의 `last_error`에 남고 60초 뒤에 다시 시도합니다. 값이 30분 넘게 안 들어오면 `is_stale`이 `true`가 됩니다. | 처음에는 마지막 온도, 30분 뒤에는 "최신 값이 아닐 수 있어요" | `tests/test_lab_sync.py::test_run_once_survives_lab_server_failure`<br>`tests/test_lab_sync.py::test_lab_sync_status_endpoint`<br>`tests/test_check_server.py::test_lab_sync_with_an_error_fails` |
+| **연구실 응답의 일부 항목을 쓸 수 없음** (이름 형식이 다름, 위치 없음, 1시간 이상 지남, 시각이나 온도를 읽을 수 없음) | 그 항목만 건너뛰고 나머지는 저장합니다. 건너뛴 건수는 `last_result`에 남깁니다. 위치가 없는 센서는 등록하지 않습니다. | 영향 없음 | `tests/test_lab_sync.py::test_sync_skips_unusable_names_and_stale_rows`<br>`tests/test_lab_sync.py::test_sync_does_not_register_a_sensor_without_location` |
+| **같은 센서와 같은 시각의 값이 두 번 옴** (직접 전송과 폰 전송, 반복 호출) | (센서, 측정 시각)이 같으면 한 번만 저장합니다. | 영향 없음 | `tests/test_lab_sync.py::test_sync_is_idempotent_and_dedupes`<br>`tests/test_api.py::test_post_reading_created_then_duplicate` |
+| **연구실 서버에 새 센서가 생김** | 위치가 있으면 센서 표에 자동으로 등록하고(`kind`는 `lab`), 없으면 등록하지 않습니다. | 영향 없음 | `tests/test_lab_sync.py::test_sync_registers_unknown_lab_sensors_with_location` |
+
+### C. 서버와 앱 사이의 문제
+| 상황 | 서버가 하는 일 | 앱 (화면) | 확인 |
+| --- | --- | --- | --- |
+| **앱이 우리 서버에 접속하지 못함** (서버가 꺼짐, 같은 Wi-Fi가 아님, IP가 바뀜, 노트북 절전) | 서버 쪽에서 할 수 있는 일은 없습니다. 시연 전에 점검 도구(`python -m app.check_server`)와 README의 "시연 전 점검"으로 미리 확인합니다. | 코스 목록은 폰에 저장한 마지막 목록, 없으면 앱에 넣은 기본 목록을 씁니다. **센서 감지, 도착, 방문 기록은 계속 됩니다.** 온도는 "값을 받을 수 없어요", 추천은 기온 없이 가장 긴 코스 (구현 중: PR #49) | `tests/test_check_server.py::test_main_reports_an_unreachable_server`<br>`tests/test_export_tour.py::test_snapshot_has_no_temperatures` |
+| **서버 DB가 예전 구조** (표나 칸을 바꾼 뒤 예전 `campus_tour.db`로 켬) | 시작할 때 어느 표가 예전 구조인지 알려 주고 **멈춥니다.** `campus_tour.db`를 지우고 다시 켜면 됩니다. | (서버가 꺼진 상태와 같음) | `tests/test_api.py::test_old_readings_table_is_detected_with_clear_message`<br>`tests/test_api.py::test_old_sensors_table_is_detected_too`<br>`tests/test_spot_sensors.py::test_old_spots_table_is_detected` |
+| **앱이 값을 우리 서버로 올릴 때** (보조 경로) | 같은 (센서, 측정 시각)이면 `200 duplicate`, 등록되지 않은 센서는 `404`, 형식이 틀리면 `422`입니다. 범위 밖 값은 저장한 뒤 제외합니다. | 앱의 재전송 큐가 네트워크 오류와 서버 오류는 다시 보내고, 요청이 거절된 값(4xx)은 버립니다. | `tests/test_api.py::test_post_reading_created_then_duplicate`<br>`tests/test_api.py::test_post_reading_rejects_unregistered_sensor`<br>`tests/test_api.py::test_post_reading_validation` |
+| **없는 장소 번호를 물음** | `404`와 `{"detail": "spot not found"}`를 줍니다. | 앱은 장소 번호를 직접 만들어 묻지 않습니다. | `tests/test_api.py::test_spots_and_404` |
+
+### D. 코스 추천에서의 예외
+| 상황 | 서버가 하는 일 | 앱 (화면) | 확인 |
+| --- | --- | --- | --- |
+| **기온을 아는 장소가 하나도 없음** (값이 없거나 모두 오래됨) | `condition`을 `unknown`으로 하고 가장 긴 코스를 추천하며, `reason`에 기온을 몰라 기본 코스를 추천한다고 알려 줍니다. | (앱 담당 확인 필요) | `tests/test_recommend_logic.py::test_unknown_when_no_spot_has_a_temperature`<br>`tests/test_recommend.py::test_stale_values_are_not_used_so_the_condition_is_unknown` |
+| **코스가 하나도 없음** | `recommended_course_id`와 `recommended_course_name`이 `null`이고 `reason`은 "추천할 코스가 없습니다."입니다. | (앱 담당 확인 필요) | `tests/test_recommend_logic.py::test_no_courses_means_no_recommendation` |
+| **여러 장소가 같은 센서 값을 빌려 평균이 한쪽으로 쏠림** | 평균을 낼 때 **같은 센서의 값은 한 번만** 넣습니다. | 영향 없음 | `tests/test_recommend.py::test_sensor_shared_by_two_spots_is_counted_once`<br>`tests/test_recommend_logic.py::test_same_sensor_is_counted_once_across_spots` |
+
+### 아직 대응하지 못하는 상황 (알려진 한계)
+- **연구실 서버의 호출 제한과 장기 안정성**은 확인하지 못했습니다. 60초마다 한 번씩만 부르고 실패하면 다음 주기를 기다립니다.
+- **연구실 서버가 학교 네트워크에서만 열립니다.** 학교 밖에서 서버를 켜면 연구실 값을 가져오지 못하고 마지막 값(없으면 값 없음)만 보여 줍니다. 클라우드에서 서버를 켜는 방법이 쓰이지 않은 이유입니다.
+- **앱이 연구실 서버로 올리는 업로드(2번 API)는 모든 실패를 400으로 돌려줍니다.** 일시적인 저장 실패도 앱이 "거절된 요청"으로 보고 버릴 수 있습니다. 값이 계속 올라가므로 영향은 작다고 봅니다. (PR #32 리뷰)
+- 서버를 켜 둔 노트북이 꺼지면 **서버가 꺼져 있는 동안의 센서 값은 쌓이지 않습니다.** 켠 시점부터 쌓이고, 연구실 서버의 과거 기록을 가져오는 기능은 만들지 않았습니다.
+
+## 10. 제한과 미정 사항
 
 | 항목 | 내용 |
 | --- | --- |
