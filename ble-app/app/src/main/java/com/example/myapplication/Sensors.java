@@ -35,8 +35,8 @@ public final class Sensors {
 
     public static final List<Sensor> ALL = Collections.unmodifiableList(Arrays.asList(
             new Sensor(1, "opensrc1", "sensor 07", "88:A2:9E:9B:5F:09", "도서관 뒤편 (진로창업본부 입구)"),
-            new Sensor(2, "opensrc2", "sensor 15", "88:A2:9E:9B:5E:6A", "사회과학대 입구"),
-            new Sensor(3, "opensrc3", "sensor 31", "B8:27:EB:D3:40:06", "사회과학대 옆 이마트24 건너편"),
+            new Sensor(2, "opensrc2", "sensor 15", "88:A2:9E:9B:5E:6A", "사회과학대 옆 이마트24 건너편"),
+            new Sensor(3, "opensrc3", "sensor 31", "B8:27:EB:D3:40:06", "사회과학대 입구"),
             new Sensor(4, "opensrc4", "sensor 32", "D8:3A:DD:79:8F:80", "테니스장 앞"),
             new Sensor(5, "opensrc5", "sensor 33", "D8:3A:DD:C1:89:5B", "테니스장 건너편")
     ));
