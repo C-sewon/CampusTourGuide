@@ -134,3 +134,37 @@ def test_every_table_dot_column_in_the_mapping_table_exists_in_the_database():
     assert checked, "대응표에 DB 칸(표.칸) 표시가 하나도 없습니다"
     unknown = sorted((t, c) for t, c in checked if c not in tables[t])
     assert not unknown, f"대응표가 가리키는 DB 칸이 실제로 없습니다: {unknown}"
+
+
+# ---------------------------------------------------------------------------------------------
+# 예외 상황 표 (9장 "예외 상황과 동작")
+# ---------------------------------------------------------------------------------------------
+def exception_section():
+    text = DOC.read_text(encoding="utf-8")
+    start = text.index("## 9. 예외 상황과 동작")
+    end = text.index("\n## ", start + 10)
+    return text[start:end]
+
+
+def cited_tests():
+    """예외 상황 표의 "확인" 열이 가리키는 (테스트 파일, 테스트 이름) 목록."""
+    return sorted(set(re.findall(r"`(tests/[A-Za-z0-9_]+\.py)::(test_[A-Za-z0-9_]+)`", exception_section())))
+
+
+def test_the_exception_table_cites_many_tests():
+    assert len(cited_tests()) >= 30, "예외 상황 표가 가리키는 테스트가 너무 적습니다"
+
+
+@pytest.mark.parametrize("file,name", cited_tests())
+def test_every_test_cited_in_the_exception_table_exists(file, name):
+    path = DOC.parent.parent / file
+    assert path.exists(), f"{file} 파일이 없습니다"
+    assert re.search(rf"^def {name}\(", path.read_text(encoding="utf-8"), re.MULTILINE), (
+        f"{file} 에 {name} 테스트가 없습니다. 테스트 이름을 바꿨다면 docs/backend-design.md 9장을 고쳐 주세요."
+    )
+
+
+def test_the_exception_table_covers_the_situations_the_checklist_names():
+    section = exception_section()
+    for situation in ("센서 미가동", "연구실 서버에 접속하지 못함", "앱이 우리 서버에 접속하지 못함", "오류값", "값이 오래됨"):
+        assert situation in section, f"예외 상황 표에 '{situation}'이 없습니다"
