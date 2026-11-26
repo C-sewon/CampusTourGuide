@@ -48,7 +48,10 @@ public final class TourTabs {
                 from.overridePendingTransition(0, 0);
                 break;
             case MY_TOUR:
-                Toast.makeText(from, "내 투어 화면은 준비 중이에요", Toast.LENGTH_SHORT).show();
+                // 내 투어 (#37): 방문 기록과 도착 시각
+                Intent myTour = new Intent(from, MyTourActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                from.startActivity(myTour);
+                from.overridePendingTransition(0, 0);
                 break;
             default:
                 Toast.makeText(from, "가이드는 준비 중이에요", Toast.LENGTH_SHORT).show();

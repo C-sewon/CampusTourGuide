@@ -54,7 +54,7 @@ public class MyCourseActivity extends AppCompatActivity {
             render();
         });
         btnStart.setOnClickListener(v -> {
-            if (!myCourse.canStart()) return;
+            if (!canStart()) return;
             MyCourse.save(this, myCourse.spotIds());
             List<Integer> visited = TourProgress.visitedAmong(myCourse.spotIds());
             if (visited.isEmpty()) start();
@@ -93,6 +93,14 @@ public class MyCourseActivity extends AppCompatActivity {
         super.onResume();
         // 장소 안내에서 돌아오면 방문 표시를 새로 그린다
         render();
+    }
+
+    /**
+     * 시작할 수 있는지: 2곳 이상 골랐고, 장소 목록을 받은 뒤.
+     * 목록을 받기 전에는 장소 이름을 몰라서 팝업 문구가 비고 코스도 만들 수 없다. (PR #57 리뷰)
+     */
+    private boolean canStart() {
+        return myCourse.canStart() && !spots.isEmpty();
     }
 
     private void start() {
@@ -164,7 +172,7 @@ public class MyCourseActivity extends AppCompatActivity {
             }
         }
         tvSummary.setText(CourseDisplay.myCourseSummary(myCourse.size(), MyCourse.MIN_SPOTS));
-        btnStart.setEnabled(myCourse.canStart());
-        btnStart.setAlpha(myCourse.canStart() ? 1f : 0.4f);
+        btnStart.setEnabled(canStart());
+        btnStart.setAlpha(canStart() ? 1f : 0.4f);
     }
 }

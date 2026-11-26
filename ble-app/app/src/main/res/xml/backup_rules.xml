@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
+   Android 11(API 30) 이하의 자동 백업 규칙. (Android 12 이상은 data_extraction_rules.xml)
+   방문 기록과 내 코스는 "폰 안에만 저장한다"(설계 문서 NRF-10, RF-FX-02)는 약속에 맞게 구글 계정 백업에서 뺀다. (#37, PR #57 리뷰)
+   - tour_progress.xml: 장소별 도착 시각 (TourProgress)
+   - my_course.xml: 내 코스로 고른 장소 순서 (MyCourse)
    See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="tour_progress.xml" />
+    <exclude domain="sharedpref" path="my_course.xml" />
 </full-backup-content>
