@@ -208,7 +208,7 @@ def test_sequence_diagram_uses_only_declared_participants_and_balanced_blocks(in
         elif line.startswith("else") or line.startswith("Note "):
             pass
         else:
-            message = re.match(r"(\w+)(-->>|->>)(\w+):\s*\S", line)
+            message = re.match(r"(\w+)(-->>|->>|-\))(\w+):\s*\S", line)
             assert message, f"해석할 수 없는 줄입니다: {line}"
             assert message.group(1) in participants and message.group(3) in participants, (
                 f"선언하지 않은 참여자가 있습니다: {line}"
