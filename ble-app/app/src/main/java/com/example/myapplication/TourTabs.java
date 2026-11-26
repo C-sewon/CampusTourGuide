@@ -8,6 +8,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.core.widget.TextViewCompat;
 
 /** 하단 탭(탐색 / 내 투어 / 가이드). 레이아웃은 view_tour_tabs.xml */
@@ -30,7 +31,9 @@ public final class TourTabs {
         int color = ContextCompat.getColor(activity,
                 selected ? R.color.tour_primary : R.color.tour_text_secondary);
         view.setTextColor(color);
-        view.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+        // null 을 넘기면 시스템 기본 글꼴로 바뀌어서, 앱 글꼴(Pretendard)에 굵기만 바꿔 적용한다
+        Typeface font = ResourcesCompat.getFont(activity, R.font.pretendard);
+        view.setTypeface(Typeface.create(font, selected ? Typeface.BOLD : Typeface.NORMAL));
         TextViewCompat.setCompoundDrawableTintList(view, ColorStateList.valueOf(color));
         view.setSelected(selected);
         if (selected) {
