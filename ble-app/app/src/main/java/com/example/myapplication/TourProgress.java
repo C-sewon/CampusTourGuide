@@ -83,10 +83,26 @@ public final class TourProgress {
         return v == null ? null : v.arrivedAt;
     }
 
-    /** 기록을 모두 지운다 (내 투어의 "새로 시작") */
+    /** 기록을 모두 지운다 (내 투어의 "기록 지우기") */
     public static synchronized void clear() {
         VISITS.clear();
         save();
+    }
+
+    /** 이 장소들의 기록만 지운다 (내 코스를 새로 걸을 때). 다른 장소 기록은 그대로 */
+    public static synchronized void forget(List<Integer> spotIds) {
+        if (spotIds == null) return;
+        boolean changed = false;
+        for (Integer id : spotIds) if (id != null && VISITS.remove(id) != null) changed = true;
+        if (changed) save();
+    }
+
+    /** 이 장소들 중 이미 도착 기록이 있는 장소 (주어진 순서대로) */
+    public static synchronized List<Integer> visitedAmong(List<Integer> spotIds) {
+        List<Integer> out = new ArrayList<>();
+        if (spotIds == null) return out;
+        for (Integer id : spotIds) if (id != null && VISITS.containsKey(id)) out.add(id);
+        return out;
     }
 
     public static int countVisited(List<HomeApi.CourseSpot> stops) {

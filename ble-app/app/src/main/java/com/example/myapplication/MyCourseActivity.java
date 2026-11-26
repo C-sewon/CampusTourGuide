@@ -56,7 +56,9 @@ public class MyCourseActivity extends AppCompatActivity {
         btnStart.setOnClickListener(v -> {
             if (!myCourse.canStart()) return;
             MyCourse.save(this, myCourse.spotIds());
-            SpotActivity.start(this, MyCourse.COURSE_ID);
+            List<Integer> visited = TourProgress.visitedAmong(myCourse.spotIds());
+            if (visited.isEmpty()) start();
+            else askAboutVisited(visited);
         });
 
         // 지난번에 고른 순서를 이어서 고친다
@@ -91,6 +93,31 @@ public class MyCourseActivity extends AppCompatActivity {
         super.onResume();
         // 장소 안내에서 돌아오면 방문 표시를 새로 그린다
         render();
+    }
+
+    private void start() {
+        SpotActivity.start(this, MyCourse.COURSE_ID);
+    }
+
+    /**
+     * 고른 장소 중 이미 도착 기록이 있는 곳이 있으면 묻는다.
+     * 지우고 시작: 그 장소들의 기록만 지운다 (다른 장소 기록과 카드 모은 것은 그대로).
+     * 그대로 시작: 이어서 걷는 경우를 위해 기록을 둔다.
+     */
+    private void askAboutVisited(List<Integer> visited) {
+        List<String> names = new ArrayList<>();
+        for (Integer id : visited) {
+            for (HomeApi.Spot s : spots) if (s.id == id) names.add(s.name);
+        }
+        TourDialog.show(this,
+                getString(R.string.my_course_visited_title),
+                CourseDisplay.alreadyVisitedMessage(names),
+                getString(R.string.my_course_visited_reset), () -> {
+                    TourProgress.forget(visited);
+                    start();
+                },
+                getString(R.string.my_course_visited_keep), this::start,
+                getString(R.string.my_course_visited_cancel));
     }
 
     private void render() {

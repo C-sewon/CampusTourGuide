@@ -69,6 +69,24 @@ public class TourProgressTest {
     }
 
     @Test
+    public void forget_onlyGivenSpots() {
+        TourProgress.markArrived(3, true, 1L);
+        TourProgress.markArrived(7, true, 2L);
+        TourProgress.markArrived(1, true, 3L);
+        // 내 코스(3, 7, 11) 중 이미 간 곳은 3, 7
+        assertEquals(Arrays.asList(3, 7), TourProgress.visitedAmong(Arrays.asList(3, 7, 11)));
+
+        TourProgress.forget(Arrays.asList(3, 7, 11));
+        assertFalse(TourProgress.isVisited(3));
+        assertFalse(TourProgress.isVisited(7));
+        // 내 코스에 없는 장소 기록은 그대로
+        assertTrue(TourProgress.isVisited(1));
+        // 지운 장소는 다시 도착하면 새 시각으로 기록된다
+        assertTrue(TourProgress.markArrived(3, false, 9L));
+        assertEquals(Long.valueOf(9L), TourProgress.arrivedAt(3));
+    }
+
+    @Test
     public void clear_removesAll() {
         TourProgress.markArrived(6, false, 1L);
         TourProgress.clear();

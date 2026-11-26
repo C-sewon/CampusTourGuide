@@ -5,4 +5,8 @@
     <string name="my_course_hint">가고 싶은 곳을 순서대로 눌러 주세요. 한 번 더 누르면 빠져요.</string>
     <string name="my_course_clear">모두 지우기</string>
     <string name="my_course_start">이 순서로 시작하기</string>
+    <string name="my_course_visited_title">이미 방문한 장소가 있어요</string>
+    <string name="my_course_visited_reset">지우고 시작</string>
+    <string name="my_course_visited_keep">그대로 시작</string>
+    <string name="my_course_visited_cancel">취소</string>
 </resources>

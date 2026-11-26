@@ -53,6 +53,21 @@ public final class CourseDisplay {
         return selected + "곳 골랐어요 · 누른 순서대로 걸어요";
     }
 
+    /** 내 코스를 시작할 때 이미 간 장소가 있으면 묻는 문구. 예: "대학본부, 솔못은 이미 도착 기록이 있어요. …" */
+    public static String alreadyVisitedMessage(java.util.List<String> names) {
+        String joined = String.join(", ", names);
+        return joined + topic(joined) + " 이미 도착 기록이 있어요. "
+                + "이 장소들의 기록을 지우고 새로 시작할까요?";
+    }
+
+    /** 마지막 글자에 받침이 있으면 "은", 없으면 "는". 한글이 아니면 "은(는)" */
+    static String topic(String word) {
+        if (word == null || word.isEmpty()) return "은(는)";
+        char last = word.charAt(word.length() - 1);
+        if (last < 0xAC00 || last > 0xD7A3) return "은(는)";
+        return (last - 0xAC00) % 28 == 0 ? "는" : "은";
+    }
+
     /** 도착하면 카드가 뜨는 장소에 붙는 표시 (has_card) */
     public static String cardChip() {
         return "카드";
