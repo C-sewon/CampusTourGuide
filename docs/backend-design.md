@@ -50,7 +50,7 @@ flowchart LR
 | --- | --- | --- |
 | 센서 값 수집, 가공, 장소별 온도 | 흐름 1 | `GET /api/spots`, `GET /api/courses`, `GET /api/sensors/status` |
 | 연구실 서버가 안 될 때의 동작 | 흐름 2 | `GET /api/lab-sync/status` |
-| 앱의 코스 목록 가져오기, 도착 판정, 방문 기록, 카드 | 흐름 3 | `GET /api/courses` |
+| 앱의 코스 목록 가져오기, 내 코스 만들기, 도착 판정, 방문 기록, 카드 | 흐름 3 | `GET /api/courses` |
 | 환경 맞춤 코스 추천 | 흐름 4 | `GET /api/courses/recommend` |
 | 서버 시작과 DB 준비 | 흐름 5 | `GET /health` |
 
@@ -117,17 +117,21 @@ sequenceDiagram
     else 서버가 안 됨
         Note over APP: 저장본 또는 기본 목록을 그대로 쓰고 온도는 값을 받을 수 없어요로 보임
     end
+    opt 방문객이 내 코스를 만듦
+        APP->>PH: 고른 장소와 순서 저장
+    end
     SN-)APP: BLE 신호 (신호 세기 RSSI)
     Note over APP: 최근 10초 신호 평균이 -70 dBm 이상이고 값이 3개 이상이면 도착 (여러 센서면 가장 센 하나)
     Note over APP: 그 센서가 설치된 모든 장소를 방문으로 기록 (안내 중인 장소가 아니어도)
-    APP->>PH: 장소와 방문 시각 저장 (구현 중)
+    APP->>PH: 장소와 도착 시각 저장 (같은 장소는 처음 도착만)
     opt 그 장소의 has_card가 true
         Note over APP: 카드 표시 (구현 중)
     end
     Note over APP,SRV: 도착 판정과 방문 기록은 폰 안에서만 하고 서버로 보내지 않음
 ```
 - **도착과 떠남**: 신호 평균이 -80 dBm 아래로 떨어지거나 신호가 끊기면 떠난 것으로 봅니다. 도착은 떠났다가 다시 와야 새로 판정됩니다. 코스 목록을 받기 전에 도착한 센서는 보관했다가 목록을 받으면 기록합니다. (PR #54, 앱의 `ArrivalDetector`, `ArrivalRouter`)
-- **구현 상태 (2026-11-26)**: 코스 목록의 저장본과 기본 목록, 자동 도착 연결은 main에 반영됐습니다(PR #49, #54). 방문 기록은 지금 main에서는 **앱이 켜져 있는 동안에만** 보관합니다. 폰 저장과 도착 시각은 PR #57에서 리뷰 중이고, 내 투어와 카드는 구현 중입니다(이슈 #37).
+- **내 코스** (자유 탐색): 장소를 2곳 이상 골라 누른 순서대로 걷습니다. 장소 목록은 위의 코스 목록(서버, 저장본, 기본 목록)에서 모으므로 서버가 없어도 만들 수 있습니다. 내 코스에는 장소별 시간이 없어 다음 장소까지의 시간은 보여 주지 않습니다. 고른 장소에 이미 도착 기록이 있으면 지우고 시작할지, 그대로 시작할지 묻습니다. (PR #57)
+- **구현 상태 (2026-11-26)**: 코스 목록의 저장본과 기본 목록, 자동 도착 연결(PR #49, #54), 내 코스 만들기와 방문 시각의 폰 저장(PR #57)은 main에 반영됐습니다. **내 투어 화면과 도착했을 때의 카드는 구현 중**입니다(이슈 #37). 저장한 방문 기록을 모두 지우는 화면은 아직 없습니다.
 - 서버가 하는 일은 `GET /api/courses`로 코스 목록을 주는 것까지입니다.
 
 #### 흐름 4. 환경 맞춤 코스 추천
@@ -309,8 +313,8 @@ flowchart TD
 ### 앱 담당 확인 (2026-11-24, 이슈 #52)
 앱 담당(황지유, 홍유진)이 필드와 동작의 뜻 22개 항목을 앱 코드(main)와 대조해 확인했습니다.
 
-- **다르다고 답한 것은 13번(`minutes`, `total_minutes`) 하나**입니다. 뜻은 같게 이해하고 있었지만 앱 화면 글자가 "도보 N분"이었습니다. 이동과 관람의 합이므로 "도보"를 빼는 수정이 PR #57에 있습니다. (2026-11-26 리뷰 중)
-- **지금 앱 화면에서 쓰지 않는 것**: `humidity`, `recent_average`, 장소 안내 화면의 `value_source.location`, 추천의 `reason`(앱 문구를 씀)과 `thresholds`, `GET /api/spots/{id}`. `is_core`와 `has_card`는 카드 기능(#37)에서 쓸 예정입니다.
+- **다르다고 답한 것은 13번(`minutes`, `total_minutes`) 하나**였습니다. 뜻은 같게 이해하고 있었지만 앱 화면 글자가 "도보 N분"이었습니다. 이동과 관람의 합이므로 앱이 "약 N분"으로 고쳤습니다. (PR #57) 걷는 길 경로의 "남은 거리, 도보 약 N분"은 실제 걷는 시간이라 그대로입니다.
+- **지금 앱 화면에서 쓰지 않는 것**: `humidity`, `recent_average`, 장소 안내 화면의 `value_source.location`, 추천의 `reason`(앱 문구를 씀)과 `thresholds`, `GET /api/spots/{id}`. `has_card`는 내 코스 화면의 "카드" 표시에 씁니다. 도착했을 때 카드를 띄우는 것과 `is_core`를 쓰는 것은 카드 기능(#37)에서 할 예정입니다.
 - 앱의 홈 지도 점 색 기준(27℃, 5℃)은 `thresholds`를 받아 쓰지 않고 **앱 안에 같은 값으로 들어 있습니다.**
 
 ### 한눈에 보기
@@ -804,7 +808,7 @@ pytest 290개가 통과합니다. (`pytest` 한 줄로 실행)
 ### C. 서버와 앱 사이의 문제
 | 상황 | 서버가 하는 일 | 앱 (화면) | 확인 |
 | --- | --- | --- | --- |
-| **앱이 우리 서버에 접속하지 못함** (서버가 꺼짐, 같은 Wi-Fi가 아님, IP가 바뀜, 노트북 절전) | 서버 쪽에서 할 수 있는 일은 없습니다. 시연 전에 점검 도구(`python -m app.check_server`)와 README의 "시연 전 점검"으로 미리 확인합니다. | 코스 목록은 폰에 저장한 마지막 목록, 없으면 앱에 넣은 기본 목록 (PR #49). 홈: "서버에 연결할 수 없어 기온 없이 추천해요"와 가장 긴 코스, 센서 점은 회색. 장소 안내: "지금은 이 근처 센서 값을 받을 수 없어요". **센서 감지와 도착, 방문 기록은 계속 됩니다.** (방문 기록의 폰 저장은 구현 중: PR #57) | `tests/test_check_server.py::test_main_reports_an_unreachable_server`<br>`tests/test_export_tour.py::test_snapshot_has_no_temperatures` |
+| **앱이 우리 서버에 접속하지 못함** (서버가 꺼짐, 같은 Wi-Fi가 아님, IP가 바뀜, 노트북 절전) | 서버 쪽에서 할 수 있는 일은 없습니다. 시연 전에 점검 도구(`python -m app.check_server`)와 README의 "시연 전 점검"으로 미리 확인합니다. | 코스 목록은 폰에 저장한 마지막 목록, 없으면 앱에 넣은 기본 목록 (PR #49). 홈: "서버에 연결할 수 없어 기온 없이 추천해요"와 가장 긴 코스, 센서 점은 회색. 장소 안내: "지금은 이 근처 센서 값을 받을 수 없어요". **센서 감지와 도착, 방문 기록은 계속 됩니다.** 방문 기록은 도착 시각과 함께 폰에 저장되고, 내 코스도 만들 수 있습니다. (PR #57) | `tests/test_check_server.py::test_main_reports_an_unreachable_server`<br>`tests/test_export_tour.py::test_snapshot_has_no_temperatures` |
 | **서버 DB가 예전 구조** (표나 칸을 바꾼 뒤 예전 `campus_tour.db`로 켬) | 시작할 때 어느 표가 예전 구조인지 알려 주고 **멈춥니다.** `campus_tour.db`를 지우고 다시 켜면 됩니다. | (서버가 꺼진 상태와 같음) | `tests/test_api.py::test_old_readings_table_is_detected_with_clear_message`<br>`tests/test_api.py::test_old_sensors_table_is_detected_too`<br>`tests/test_spot_sensors.py::test_old_spots_table_is_detected` |
 | **값을 우리 서버로 올릴 때** (업로드 API, 보조 경로) | 같은 (센서, 측정 시각)이면 `200 duplicate`, 등록되지 않은 센서는 `404`, 형식이 틀리면 `422`입니다. 범위 밖 값은 저장한 뒤 제외합니다. | **지금 앱은 이 API를 쓰지 않습니다.** (앱의 업로드는 연구실 서버로만 감) | `tests/test_api.py::test_post_reading_created_then_duplicate`<br>`tests/test_api.py::test_post_reading_rejects_unregistered_sensor`<br>`tests/test_api.py::test_post_reading_validation` |
 | **없는 장소 번호를 물음** | `404`와 `{"detail": "spot not found"}`를 줍니다. | 앱은 `/api/spots/{id}`를 부르지 않습니다. | `tests/test_api.py::test_spots_and_404` |
@@ -836,3 +840,4 @@ pytest 290개가 통과합니다. (`pytest` 한 줄로 실행)
 | 보안 | 인증 없음. 서버에는 센서 값만 저장하고 폰 위치와 기기 ID는 저장하지 않음 |
 | 코스 추천 기준 | 5℃ 이하, 27℃ 이상을 기본값으로 정했을 뿐 실험으로 정한 값은 아님. 환경변수로 바꿀 수 있음 |
 | 선택 기능 | 이동 시간 자동 계산은 미구현 (장소 좌표 확정 후, 이슈 #22). 기상청 날씨 대체는 보류하고 이슈 #18을 닫음 |
+| 방문 기록과 휴대폰 백업 | 방문 기록은 우리 서버로 보내지 않고 폰에 저장합니다. 다만 앱의 자동 백업 설정이 안드로이드 기본값이라, 사용자의 구글 계정 백업이나 기기 이전에 방문 기록이 포함될 수 있습니다. 백업에서 뺄지는 정하지 않았습니다. (PR #57 리뷰, 기기에서 확인하지 않음) |
