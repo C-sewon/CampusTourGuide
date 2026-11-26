@@ -117,6 +117,7 @@ public class SpotActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        TourProgress.init(this); // 방문 기록을 폰에서 읽어 온다 (#37). 이 화면부터 다시 열릴 수도 있어서 여기서도 부른다
         TourMap.configure(this);
         setContentView(R.layout.activity_spot);
         getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.tour_background));
@@ -242,7 +243,10 @@ public class SpotActivity extends AppCompatActivity {
         HomeApi requestApi = api;
         TourData.load(this, requestApi, (courses, source) -> {
             if (isFinishing() || isDestroyed() || requestApi != api) return;
-            setCourse(TourData.find(courses, courseId));
+            // 내 코스(#37)는 폰에 저장해 둔 순서대로 장소를 모아 만든다
+            setCourse(courseId == MyCourse.COURSE_ID
+                    ? MyCourse.build(courses, MyCourse.load(this))
+                    : TourData.find(courses, courseId));
         });
     }
 
@@ -252,7 +256,9 @@ public class SpotActivity extends AppCompatActivity {
             return;
         }
         course = c;
-        if (index < 0) index = TourProgress.firstUnvisited(c.spots);
+        // 서버 코스는 아직 안 간 첫 장소부터 이어서 걷는다.
+        // 내 코스는 방금 고른 코스라 첫 장소부터 보여 준다. 다른 코스에서 이미 간 곳은 "방문 완료"로 보인다
+        if (index < 0) index = c.id == MyCourse.COURSE_ID ? 0 : TourProgress.firstUnvisited(c.spots);
         index = Math.max(0, Math.min(index, c.spots.size() - 1));
         show();
     }
@@ -578,8 +584,9 @@ public class SpotActivity extends AppCompatActivity {
         } else {
             HomeApi.CourseSpot next = course.spots.get(index + 1);
             tvNextName.setText(next.spot.name);
+            // 지점별 시간은 이동 + 관람 합계라 "약 N분"으로 보여 준다 (#52). 내 코스는 시간이 없어서(0) 숨긴다
             tvNextWalk.setText(SpotDisplay.walk(next.minutes));
-            tvNextWalk.setVisibility(View.VISIBLE);
+            tvNextWalk.setVisibility(next.minutes > 0 ? View.VISIBLE : View.GONE);
         }
     }
 

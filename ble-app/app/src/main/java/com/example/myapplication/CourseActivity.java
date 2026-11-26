@@ -53,6 +53,7 @@ public class CourseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        TourProgress.init(this); // 방문 기록을 폰에서 읽어 온다 (#37)
         setContentView(R.layout.activity_course);
         getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.tour_background));
 
@@ -207,6 +208,7 @@ public class CourseActivity extends AppCompatActivity {
             });
             courseList.addView(card);
         }
+        courseList.addView(myCourseCard(inflater));
 
         HomeApi.Course selected = findCourse(selectedId);
         tvStopsTitle.setText(CourseDisplay.stopsTitle(selected.name));
@@ -237,6 +239,20 @@ public class CourseActivity extends AppCompatActivity {
             }
         }
         btnStart.setText(CourseDisplay.startLabel(TourProgress.countVisited(selected.spots), total));
+    }
+
+    /** 서버 코스 아래의 "내 코스 만들기" 카드 (#37). 누르면 장소를 골라 나만의 순서로 걷는 화면을 연다 */
+    private View myCourseCard(LayoutInflater inflater) {
+        MaterialCardView card = (MaterialCardView) inflater.inflate(R.layout.item_course, courseList, false);
+        ((TextView) card.findViewById(R.id.tvCourseName)).setText(R.string.my_course_title);
+        card.findViewById(R.id.tvBadge).setVisibility(View.GONE);
+        ((TextView) card.findViewById(R.id.tvCourseMeta))
+                .setText(CourseDisplay.myCourseEntryMeta(MyCourse.load(this).size()));
+        card.findViewById(R.id.progress).setVisibility(View.GONE);
+        card.findViewById(R.id.tvProgress).setVisibility(View.GONE);
+        card.setStrokeWidth(0);
+        card.setOnClickListener(v -> MyCourseActivity.open(this));
+        return card;
     }
 
     private HomeApi.Course findCourse(Integer id) {

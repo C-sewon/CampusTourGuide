@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 앱 디자인에 맞춘 확인 팝업 (TourDialog). 제목, 설명, 주 버튼(채움), 보조 버튼(테두리), 취소(글자) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_tour_card"
+    android:orientation="vertical"
+    android:paddingStart="22dp"
+    android:paddingTop="24dp"
+    android:paddingEnd="22dp"
+    android:paddingBottom="12dp">
+
+    <TextView
+        android:id="@+id/tvDialogTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/tour_text"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        tools:text="이미 방문한 장소가 있어요" />
+
+    <TextView
+        android:id="@+id/tvDialogMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:lineSpacingExtra="4dp"
+        android:textColor="@color/tour_text_secondary"
+        android:textSize="14sp"
+        tools:text="정문, 개신문화관, 테니스장은 이미 도착 기록이 있어요. 이 장소들의 기록을 지우고 새로 시작할까요?" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnDialogPrimary"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="22dp"
+        android:backgroundTint="@color/tour_primary"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:textColor="@color/tour_on_primary"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:cornerRadius="14dp"
+        tools:text="지우고 시작" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnDialogSecondary"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="8dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:textColor="@color/tour_primary"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:cornerRadius="14dp"
+        app:strokeColor="@color/tour_primary"
+        app:strokeWidth="1.5dp"
+        tools:text="그대로 시작" />
+
+    <TextView
+        android:id="@+id/btnDialogCancel"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="4dp"
+        android:background="?attr/selectableItemBackground"
+        android:gravity="center"
+        android:textColor="@color/tour_text_secondary"
+        android:textSize="14sp"
+        tools:text="취소" />
+</LinearLayout>

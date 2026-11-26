@@ -70,9 +70,12 @@ public final class SpotDisplay {
         return HomeDisplay.ago(ageMinutes) + " 측정";
     }
 
-    /** 다음 장소까지. 예: "도보 4분" */
+    /**
+     * 다음 장소까지. 예: "약 4분".
+     * 서버의 지점별 시간은 이동 + 관람 합계라 "도보"라고 하지 않는다. (#52 13번)
+     */
     public static String walk(int minutes) {
-        return "도보 " + minutes + "분";
+        return "약 " + minutes + "분";
     }
 
     /**
