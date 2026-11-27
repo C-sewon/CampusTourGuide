@@ -21,7 +21,7 @@ public final class MyCourse {
     public static final int COURSE_ID = -1;
     public static final String NAME = "내 코스";
     /** 이만큼 골라야 시작할 수 있다 */
-    public static final int MIN_SPOTS = 2;
+    public static final int MIN_SPOTS = 3;
 
     private static final String PREFS = "my_course";
     private static final String PREF_SPOTS = "spot_ids";

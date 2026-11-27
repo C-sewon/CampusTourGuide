@@ -53,11 +53,18 @@ import java.util.List;
 public class SpotActivity extends AppCompatActivity {
 
     private static final String EXTRA_COURSE_ID = "course_id";
+    private static final String EXTRA_RESUME = "resume";
     private static final String STATE_INDEX = "index";
 
-    /** 코스의 아직 안 간 첫 장소부터 안내한다 */
+    /** 코스의 아직 안 간 첫 장소부터 안내한다. 내 코스는 방금 고른 코스라 첫 장소부터 */
     public static void start(Context context, int courseId) {
         context.startActivity(new Intent(context, SpotActivity.class).putExtra(EXTRA_COURSE_ID, courseId));
+    }
+
+    /** 내 투어의 "투어 이어서 하기": 내 코스도 아직 안 간 첫 장소부터 */
+    public static void resume(Context context, int courseId) {
+        context.startActivity(new Intent(context, SpotActivity.class)
+                .putExtra(EXTRA_COURSE_ID, courseId).putExtra(EXTRA_RESUME, true));
     }
 
     private TextView tvProgress, tvBannerTitle, tvBannerSub, tvSpotName, tvVisit;
@@ -105,12 +112,17 @@ public class SpotActivity extends AppCompatActivity {
     private HomeApi api;
     private HomeApi.Course course;
     private int index = -1;
+    /** 카드를 정할 때 쓰는 전체 코스 목록 (핵심 코스, 카드 장소). TourData 에서 받는다 */
+    private List<HomeApi.Course> allCourses;
+    /** 지금 카드를 띄우고 있으면 true. 여러 장이면 닫힐 때 다음 카드를 띄운다 */
+    private boolean cardShowing;
 
     /** BLE 자동 도착 (#29, 황지유). 어느 장소든 새로 도착이 기록되면 화면을 다시 그린다 */
     private final TourScanner.Listener scanListener = new TourScanner.Listener() {
         @Override
         public void onSpotArrived(int spotId, int sensorId) {
             if (course != null) show();
+            showPendingCards();
         }
     };
 
@@ -118,6 +130,7 @@ public class SpotActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         TourProgress.init(this); // 방문 기록을 폰에서 읽어 온다 (#37). 이 화면부터 다시 열릴 수도 있어서 여기서도 부른다
+        TourCards.init(this);    // 이미 띄운 카드 (#37)
         TourMap.configure(this);
         setContentView(R.layout.activity_spot);
         getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.tour_background));
@@ -243,6 +256,7 @@ public class SpotActivity extends AppCompatActivity {
         HomeApi requestApi = api;
         TourData.load(this, requestApi, (courses, source) -> {
             if (isFinishing() || isDestroyed() || requestApi != api) return;
+            allCourses = courses;
             // 내 코스(#37)는 폰에 저장해 둔 순서대로 장소를 모아 만든다
             setCourse(courseId == MyCourse.COURSE_ID
                     ? MyCourse.build(courses, MyCourse.load(this))
@@ -256,11 +270,14 @@ public class SpotActivity extends AppCompatActivity {
             return;
         }
         course = c;
+        TourSession.setLastCourse(this, c.id); // 내 투어의 "투어 이어서 하기"가 쓴다
         // 서버 코스는 아직 안 간 첫 장소부터 이어서 걷는다.
-        // 내 코스는 방금 고른 코스라 첫 장소부터 보여 준다. 다른 코스에서 이미 간 곳은 "방문 완료"로 보인다
-        if (index < 0) index = c.id == MyCourse.COURSE_ID ? 0 : TourProgress.firstUnvisited(c.spots);
+        // 내 코스는 방금 고른 코스라 첫 장소부터 보여 준다(이어서 하기로 열었으면 안 간 첫 장소부터). 다른 코스에서 이미 간 곳은 "방문 완료"로 보인다
+        boolean resume = getIntent().getBooleanExtra(EXTRA_RESUME, false);
+        if (index < 0) index = c.id == MyCourse.COURSE_ID && !resume ? 0 : TourProgress.firstUnvisited(c.spots);
         index = Math.max(0, Math.min(index, c.spots.size() - 1));
         show();
+        showPendingCards(); // 다른 화면에 있는 동안 도착한 카드 장소가 있으면 띄운다
     }
 
     private void close(String message) {
@@ -630,6 +647,29 @@ public class SpotActivity extends AppCompatActivity {
         if (!TourProgress.markArrived(spot.id, manual)) return;
         show();
         if (manual) Toast.makeText(this, "도착 체크했어요", Toast.LENGTH_SHORT).show();
+        showPendingCards();
+    }
+
+    /**
+     * 장소 카드 (#37 RF-FX-03). 도착이 기록됐는데 아직 띄우지 않은 카드 장소가 있으면 한 장씩 띄운다.
+     * 지금 안내 중인 장소가 아니어도 띄운다(자동 도착으로 지나간 장소). 장소마다 한 번만.
+     */
+    private void showPendingCards() {
+        if (cardShowing || allCourses == null || isFinishing() || isDestroyed()) return;
+        List<Integer> pending = TourCards.pendingNow(allCourses);
+        if (pending.isEmpty()) return;
+        int spotId = pending.get(0);
+        TourCards.markSeen(spotId);
+        TourCards.Card card = TourCards.cardFor(spotId, allCourses, TourCards.visitedIds());
+        if (card == null) {
+            showPendingCards();
+            return;
+        }
+        cardShowing = true;
+        TourCardSheet.show(this, card, () -> {
+            cardShowing = false;
+            showPendingCards();
+        });
     }
 
     /**
@@ -654,11 +694,9 @@ public class SpotActivity extends AppCompatActivity {
         else finish();
     }
 
-    /** 내 투어 화면이 생기면 그리로 보낸다. 지금은 결과만 알려주고 닫는다 */
+    /** 마지막 장소의 "투어 마치기": 내 투어 화면에서 방문 기록과 걸린 시간을 본다 (#37) */
     private void finishTour() {
-        int total = course.spots.size();
-        int visited = TourProgress.countVisited(course.spots);
-        Toast.makeText(this, "투어를 마쳤어요! " + total + "곳 중 " + visited + "곳 방문", Toast.LENGTH_LONG).show();
+        MyTourActivity.open(this);
         finish();
     }
 }

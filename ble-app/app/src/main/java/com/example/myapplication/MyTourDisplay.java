@@ -66,4 +66,29 @@ public final class MyTourDisplay {
     public static String manualChip() {
         return "수동 도착 체크";
     }
+
+    /**
+     * 마지막으로 걷던 코스의 진행 (위 카드 설명 줄). 아직 한 곳도 안 갔으면 null (기본 설명을 쓴다).
+     * 예: "정문 코스 3/7곳 방문 중", 다 갔으면 "정문 코스 7곳을 모두 걸었어요"
+     */
+    public static String courseProgress(String courseName, int visited, int total) {
+        if (courseName == null || visited <= 0 || total <= 0) return null;
+        if (visited >= total) return courseName + " " + total + "곳을 모두 걸었어요";
+        return courseName + " " + visited + "/" + total + "곳 방문 중";
+    }
+
+    /** "투어 이어서 하기"를 보여 줄지: 걷던 코스에서 한 곳 이상 갔고 아직 남은 곳이 있을 때 */
+    public static boolean canResume(int visited, int total) {
+        return visited > 0 && visited < total;
+    }
+
+    /** 이어서 하기 버튼. 예: "정문 코스 이어서 걷기 · 3/7곳" */
+    public static String resumeLabel(String courseName, int visited, int total) {
+        return courseName + " 이어서 걷기 · " + visited + "/" + total + "곳";
+    }
+
+    /** 모은 카드. 예: "2/6장" */
+    public static String cards(int collected, int total) {
+        return collected + "/" + total + "장";
+    }
 }

@@ -67,7 +67,9 @@
                 android:textSize="23sp"
                 android:textStyle="bold" />
 
+            <!-- 카드를 모으면 "도감 2/6장 채웠어요"로 바뀐다 (HomeActivity.showCollection) -->
             <TextView
+                android:id="@+id/tvSubline"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"

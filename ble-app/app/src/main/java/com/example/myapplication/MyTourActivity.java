@@ -1,5 +1,7 @@
 package com.example.myapplication;
 
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,6 +10,8 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+
+import com.google.android.material.button.MaterialButton;
 
 import java.util.HashMap;
 import java.util.List;
@@ -21,10 +25,18 @@ import java.util.TimeZone;
  */
 public class MyTourActivity extends AppCompatActivity {
 
-    private TextView tvHeadline, tvHeadlineSub, tvElapsed, tvCount, tvVisitsTitle;
+    /** 장소 안내의 "투어 마치기"에서 연다. 하단 탭으로 열 때와 같이 이미 열려 있으면 그 화면을 앞으로 */
+    public static void open(Context context) {
+        context.startActivity(new Intent(context, MyTourActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+    }
+
+    private TextView tvHeadline, tvHeadlineSub, tvElapsed, tvCount, tvCards, tvVisitsTitle, tvCoursesLink;
     private View cardStats, cardVisits;
     private LinearLayout visitList;
+    private MaterialButton btnResume, btnCourses;
     private final Map<Integer, String> spotNames = new HashMap<>();
+    /** 장소 이름, 카드 장소, 걷던 코스를 찾을 때 쓰는 코스 목록 */
+    private List<HomeApi.Course> courses;
 
     /** 투어 화면이 켜져 있는 동안 자동 도착이 기록되면 바로 다시 그린다 */
     private final TourScanner.Listener scanListener = new TourScanner.Listener() {
@@ -45,13 +57,22 @@ public class MyTourActivity extends AppCompatActivity {
         tvHeadlineSub = findViewById(R.id.tvHeadlineSub);
         tvElapsed = findViewById(R.id.tvElapsed);
         tvCount = findViewById(R.id.tvCount);
+        tvCards = findViewById(R.id.tvCards);
+        tvCoursesLink = findViewById(R.id.tvCoursesLink);
+        btnResume = findViewById(R.id.btnResume);
+        btnCourses = findViewById(R.id.btnCourses);
         tvVisitsTitle = findViewById(R.id.tvVisitsTitle);
         cardStats = findViewById(R.id.cardStats);
         cardVisits = findViewById(R.id.cardVisits);
         visitList = findViewById(R.id.visitList);
 
         TourTabs.setup(this, TourTabs.Tab.MY_TOUR);
-        findViewById(R.id.btnCourses).setOnClickListener(v -> CourseActivity.open(this, null));
+        btnCourses.setOnClickListener(v -> CourseActivity.open(this, null));
+        tvCoursesLink.setOnClickListener(v -> CourseActivity.open(this, null));
+        btnResume.setOnClickListener(v -> {
+            Integer id = TourSession.lastCourse(this);
+            if (id != null) SpotActivity.resume(this, id);
+        });
         findViewById(R.id.btnClear).setOnClickListener(v -> confirmClear());
 
         // 장소 이름: 서버 없이도 찾을 수 있게 저장본이나 기본 목록에서 먼저 채우고, 서버 목록을 받으면 다시 채운다
@@ -85,8 +106,31 @@ public class MyTourActivity extends AppCompatActivity {
         render();
     }
 
-    private void fillNames(List<HomeApi.Course> courses) {
-        for (HomeApi.Spot s : MyCourse.allSpots(courses)) spotNames.put(s.id, s.name);
+    private void fillNames(List<HomeApi.Course> list) {
+        courses = list;
+        for (HomeApi.Spot s : MyCourse.allSpots(list)) spotNames.put(s.id, s.name);
+    }
+
+    /** 마지막으로 걷던 코스 (장소 안내를 열 때 저장). 없거나 찾을 수 없으면 null */
+    private HomeApi.Course lastCourse() {
+        Integer id = TourSession.lastCourse(this);
+        if (id == null || courses == null) return null;
+        return id == MyCourse.COURSE_ID ? MyCourse.build(courses, MyCourse.load(this)) : TourData.find(courses, id);
+    }
+
+    /** 걷던 코스가 남았으면 "이어서 걷기"를 주 버튼으로, 아니면 "다른 코스 둘러보기"를 주 버튼으로 */
+    private void renderCourse() {
+        HomeApi.Course c = lastCourse();
+        int total = c != null && c.spots != null ? c.spots.size() : 0;
+        int visited = c != null ? TourProgress.countVisited(c.spots) : 0;
+        String progress = c != null ? MyTourDisplay.courseProgress(c.name, visited, total) : null;
+        if (progress != null) tvHeadlineSub.setText(progress);
+
+        boolean resume = c != null && MyTourDisplay.canResume(visited, total);
+        btnResume.setVisibility(resume ? View.VISIBLE : View.GONE);
+        tvCoursesLink.setVisibility(resume ? View.VISIBLE : View.GONE);
+        btnCourses.setVisibility(resume ? View.GONE : View.VISIBLE);
+        if (resume) btnResume.setText(MyTourDisplay.resumeLabel(c.name, visited, total));
     }
 
     private void render() {
@@ -94,6 +138,7 @@ public class MyTourActivity extends AppCompatActivity {
         int count = visits.size();
         tvHeadline.setText(MyTourDisplay.headline(count));
         tvHeadlineSub.setText(MyTourDisplay.headlineSub(count));
+        renderCourse();
 
         boolean empty = count == 0;
         cardStats.setVisibility(empty ? View.GONE : View.VISIBLE);
@@ -103,6 +148,8 @@ public class MyTourActivity extends AppCompatActivity {
 
         tvElapsed.setText(count < 2 ? "-" : MyTourDisplay.duration(MyTourDisplay.elapsed(visits)));
         tvCount.setText(count + "곳");
+        tvCards.setText(MyTourDisplay.cards(TourCards.collected(courses, TourCards.visitedIds()),
+                TourCards.cardSpots(courses).size()));
 
         LayoutInflater inflater = LayoutInflater.from(this);
         float density = getResources().getDisplayMetrics().density;

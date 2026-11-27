@@ -1,6 +1,9 @@
 package com.example.myapplication;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -61,5 +64,18 @@ public class MyTourDisplayTest {
         assertEquals("첫 방문", MyTourDisplay.gap(null, 5 * MIN));
         assertEquals("앞 장소에서 6분", MyTourDisplay.gap(0L, 6 * MIN));
         assertEquals("수동 도착 체크", MyTourDisplay.manualChip());
+    }
+
+    @Test
+    public void courseProgressAndResume() {
+        assertNull(MyTourDisplay.courseProgress("정문 코스", 0, 7));
+        assertEquals("정문 코스 3/7곳 방문 중", MyTourDisplay.courseProgress("정문 코스", 3, 7));
+        assertEquals("정문 코스 7곳을 모두 걸었어요", MyTourDisplay.courseProgress("정문 코스", 7, 7));
+
+        assertFalse(MyTourDisplay.canResume(0, 7));  // 아직 시작 전
+        assertTrue(MyTourDisplay.canResume(3, 7));
+        assertFalse(MyTourDisplay.canResume(7, 7));  // 다 걸음
+        assertEquals("정문 코스 이어서 걷기 · 3/7곳", MyTourDisplay.resumeLabel("정문 코스", 3, 7));
+        assertEquals("2/6장", MyTourDisplay.cards(2, 6));
     }
 }

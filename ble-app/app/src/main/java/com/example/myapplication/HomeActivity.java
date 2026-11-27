@@ -121,8 +121,20 @@ public class HomeActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         mapView.onResume();
+        showCollection();
         // 블루투스를 켜고 돌아왔거나 권한을 설정에서 허용한 경우 스캔을 다시 시작한다
         TourScanner.get(this).refresh();
+    }
+
+    /**
+     * 인사말 아래 줄: 카드를 모았으면 "도감 2/6장 채웠어요"로 바꾼다 (#37 장소 카드).
+     * 카드 장소는 폰 저장본이나 기본 목록(TourData)에서 세어서 서버가 없어도 된다.
+     */
+    private void showCollection() {
+        List<HomeApi.Course> courses = TourData.offline(this).courses;
+        String line = TourCards.homeSubline(TourCards.collected(courses, TourCards.visitedIds()),
+                TourCards.cardSpots(courses).size());
+        ((TextView) findViewById(R.id.tvSubline)).setText(line != null ? line : getString(R.string.home_subline));
     }
 
     // ---------- BLE 자동 감지 (#29, 황지유) ----------

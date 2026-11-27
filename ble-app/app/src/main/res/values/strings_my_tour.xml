@@ -7,6 +7,8 @@
     <string name="my_tour_count">방문한 장소</string>
     <string name="my_tour_visits_title">오늘의 발자국 (자동 기록)</string>
     <string name="my_tour_courses">다른 코스 둘러보기</string>
+    <string name="my_tour_courses_link">다른 코스 둘러보기 →</string>
+    <string name="my_tour_cards">모은 카드</string>
     <string name="my_tour_clear_title">방문 기록을 지울까요?</string>
     <string name="my_tour_clear_message">이 폰에 저장된 도착 기록이 모두 지워져요. 서버에는 원래 저장되지 않아요.</string>
     <string name="my_tour_clear_ok">지우기</string>
