@@ -5,5 +5,40 @@
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
-    <style name="Theme.MyApplication" parent="Base.Theme.MyApplication" />
+    <!-- 앱 전체 글꼴은 Pretendard (res/font/pretendard.xml). 라이트, 다크 테마가 모두 이 스타일을 쓴다.
+         Material3 버튼과 팝업 글자는 글꼴을 따로 정해 두어서 글자 모양(textAppearance)도 같이 바꾼다 -->
+    <style name="Theme.MyApplication" parent="Base.Theme.MyApplication">
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="fontFamily">@font/pretendard</item>
+        <item name="textAppearanceLabelLarge">@style/TextAppearance.Tour.LabelLarge</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.Tour.BodyLarge</item>
+        <item name="textAppearanceBodyMedium">@style/TextAppearance.Tour.BodyMedium</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.Tour.TitleMedium</item>
+        <item name="textAppearanceHeadlineSmall">@style/TextAppearance.Tour.HeadlineSmall</item>
+    </style>
+
+    <style name="TextAppearance.Tour.LabelLarge" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="fontFamily">@font/pretendard</item>
+    </style>
+
+    <style name="TextAppearance.Tour.BodyLarge" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="fontFamily">@font/pretendard</item>
+    </style>
+
+    <style name="TextAppearance.Tour.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="fontFamily">@font/pretendard</item>
+    </style>
+
+    <style name="TextAppearance.Tour.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="fontFamily">@font/pretendard</item>
+    </style>
+
+    <style name="TextAppearance.Tour.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="fontFamily">@font/pretendard</item>
+    </style>
 </resources>
