@@ -243,14 +243,10 @@ public class CourseActivity extends AppCompatActivity {
 
     /** 서버 코스 아래의 "내 코스 만들기" 카드 (#37). 누르면 장소를 골라 나만의 순서로 걷는 화면을 연다 */
     private View myCourseCard(LayoutInflater inflater) {
-        MaterialCardView card = (MaterialCardView) inflater.inflate(R.layout.item_course, courseList, false);
-        ((TextView) card.findViewById(R.id.tvCourseName)).setText(R.string.my_course_title);
-        card.findViewById(R.id.tvBadge).setVisibility(View.GONE);
-        ((TextView) card.findViewById(R.id.tvCourseMeta))
+        // 서버 코스 카드와 구분되게 점선 테두리와 ＋ 아이콘 (item_my_course_entry.xml)
+        View card = inflater.inflate(R.layout.item_my_course_entry, courseList, false);
+        ((TextView) card.findViewById(R.id.tvMyCourseMeta))
                 .setText(CourseDisplay.myCourseEntryMeta(MyCourse.load(this).size()));
-        card.findViewById(R.id.progress).setVisibility(View.GONE);
-        card.findViewById(R.id.tvProgress).setVisibility(View.GONE);
-        card.setStrokeWidth(0);
         card.setOnClickListener(v -> MyCourseActivity.open(this));
         return card;
     }

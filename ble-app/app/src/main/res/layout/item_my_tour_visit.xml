@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 내 투어 "오늘의 발자국" 한 줄: 체크, 장소 이름, 도착 시각과 앞 장소에서 걸린 시간, 수동 도착 표시 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp">
+
+    <ImageView
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:background="@drawable/bg_tour_oval"
+        android:backgroundTint="@color/tour_mint"
+        android:contentDescription="@null"
+        android:padding="5dp"
+        android:src="@drawable/ic_tour_tick"
+        android:tint="@color/tour_primary" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvVisitName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/tour_text"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="도서관 뒤편" />
+
+        <TextView
+            android:id="@+id/tvVisitGap"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/tour_text_secondary"
+            android:textSize="12sp"
+            tools:text="앞 장소에서 6분" />
+
+        <TextView
+            android:id="@+id/tvVisitManual"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_tour_chip"
+            android:backgroundTint="@color/tour_warm_bg"
+            android:paddingStart="8dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="2dp"
+            android:textColor="@color/tour_warm_chip_text"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            tools:text="수동 도착 체크" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvVisitTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/tour_text_secondary"
+        android:textSize="13sp"
+        tools:text="09:41" />
+</LinearLayout>

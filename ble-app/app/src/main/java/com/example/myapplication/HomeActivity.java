@@ -85,6 +85,8 @@ public class HomeActivity extends AppCompatActivity {
         });
         // 추천 카드를 누르면 코스 둘러보기 (추천 코스를 골라 둔 상태)
         findViewById(R.id.cardRecommend).setOnClickListener(v -> CourseActivity.open(this, recommendedCourseId));
+        // 내 코스 만들기 (#37): 추천 코스 말고 원하는 장소를 골라 걷기
+        findViewById(R.id.tvMyCourseLink).setOnClickListener(v -> MyCourseActivity.open(this));
         TourTabs.setup(this, TourTabs.Tab.EXPLORE);
         findViewById(R.id.tvAppTitle).setOnLongClickListener(v -> {
             TourServer.askUrl(this, this::load);
