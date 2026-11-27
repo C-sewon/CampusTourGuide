@@ -35,6 +35,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *   지금 안내 중인 장소가 아니어도 기록한다. 이미 기록된 장소는 TourProgress가 무시한다. (같은 장소는 한 번만)
  * - 새로 기록된 장소만 onSpotArrived로 알린다. 카드를 띄울지는 화면이 정한다. (has_card)
  * - 코스 목록을 받기 전에 도착하면(장소 안내 화면부터 다시 열린 경우 등) 그 센서를 보관했다가 목록을 받으면 기록한다.
+ * - 방문 기록이 지워지면(TourProgress.clear, forget) 지금 도착해 있는 센서를 다음 확인 때 다시 기록한다.
  *
  * 모든 메서드와 알림은 메인 스레드에서 불린다.
  */
@@ -92,11 +93,17 @@ public final class TourScanner {
     private BluetoothLeScanner scanner;
     private boolean scanning = false;
     private ScanState state = ScanState.IDLE;
+    /** 방문 기록이 지워졌다. 다음 확인 때 지금 도착해 있는 센서를 다시 기록한다 */
+    private boolean recheckAfterForget = false;
 
     private final Runnable arrivalTick = new Runnable() {
         @Override
         public void run() {
             detector.tick(System.currentTimeMillis());
+            if (recheckAfterForget) {
+                recheckAfterForget = false;
+                recordCurrentArrival();
+            }
             main.postDelayed(this, ARRIVAL_TICK_MS);
         }
     };
@@ -120,6 +127,10 @@ public final class TourScanner {
         ArrivalRouter.setListener(sensorIds -> main.post(() -> {
             for (int sensorId : sensorIds) recordSensorArrival(sensorId);
         }));
+        // 방문 기록을 지우면("지우고 시작", "기록 지우기") 센서 앞에 서 있어도 도착이 다시 판정되지 않으므로,
+        // 다음 확인(최대 2초 뒤) 때 지금 도착해 있는 센서를 다시 기록한다.
+        // 바로 하지 않는 이유: "지우고 시작" 직후 열리는 장소 안내 화면이 알림(onSpotArrived)을 받을 수 있게 하려는 것
+        TourProgress.setOnForget(() -> main.post(() -> recheckAfterForget = true));
         this.lease = new ScanLease(this::startScan, this::stopScan, new ScanLease.Scheduler() {
             @Override
             public Object schedule(Runnable task, long delayMs) {
@@ -178,6 +189,12 @@ public final class TourScanner {
                 for (Listener l : listeners) l.onSpotArrived(spotId, sensorId);
             }
         }
+    }
+
+    /** 지금 도착해 있는 센서가 있으면 그 장소를 다시 기록한다 (방문 기록을 지운 뒤) */
+    private void recordCurrentArrival() {
+        Integer sensorId = detector.getCurrent();
+        if (sensorId != null) recordSensorArrival(sensorId);
     }
 
     // ---------- 스캔 ----------
