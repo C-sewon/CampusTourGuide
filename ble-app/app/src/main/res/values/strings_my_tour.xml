@@ -5,7 +5,7 @@
     <string name="my_tour_clear">기록 지우기</string>
     <string name="my_tour_elapsed">걸린 시간</string>
     <string name="my_tour_count">방문한 장소</string>
-    <string name="my_tour_visits_title">오늘의 발자국 (자동 기록)</string>
+    <string name="my_tour_visits_title">발자국 (자동 기록)</string>
     <string name="my_tour_courses">다른 코스 둘러보기</string>
     <string name="my_tour_courses_link">다른 코스 둘러보기 →</string>
     <string name="my_tour_cards">모은 카드</string>

@@ -126,7 +126,9 @@ public class MyTourActivity extends AppCompatActivity {
         String progress = c != null ? MyTourDisplay.courseProgress(c.name, visited, total) : null;
         if (progress != null) tvHeadlineSub.setText(progress);
 
-        boolean resume = c != null && MyTourDisplay.canResume(visited, total);
+        // 내 코스는 3곳 이상일 때만 이어서 걷는다. 걷다가 2곳으로 고친 코스로 3곳 규칙을 지나가지 않게 (PR #65 리뷰)
+        boolean tooShort = c != null && c.id == MyCourse.COURSE_ID && total < MyCourse.MIN_SPOTS;
+        boolean resume = c != null && !tooShort && MyTourDisplay.canResume(visited, total);
         btnResume.setVisibility(resume ? View.VISIBLE : View.GONE);
         tvCoursesLink.setVisibility(resume ? View.VISIBLE : View.GONE);
         btnCourses.setVisibility(resume ? View.GONE : View.VISIBLE);
@@ -146,23 +148,28 @@ public class MyTourActivity extends AppCompatActivity {
         cardVisits.setVisibility(empty ? View.GONE : View.VISIBLE);
         if (empty) return;
 
-        tvElapsed.setText(count < 2 ? "-" : MyTourDisplay.duration(MyTourDisplay.elapsed(visits)));
+        TimeZone zone = TimeZone.getDefault();
+        tvElapsed.setText(count < 2 ? "-" : MyTourDisplay.duration(MyTourDisplay.elapsed(visits, zone)));
         tvCount.setText(count + "곳");
         tvCards.setText(MyTourDisplay.cards(TourCards.collected(courses, TourCards.visitedIds()),
                 TourCards.cardSpots(courses).size()));
 
         LayoutInflater inflater = LayoutInflater.from(this);
         float density = getResources().getDisplayMetrics().density;
-        TimeZone zone = TimeZone.getDefault();
+        boolean manyDays = MyTourDisplay.manyDays(visits, zone);
         visitList.removeAllViews();
         Long previous = null;
         for (int i = 0; i < visits.size(); i++) {
             TourProgress.Visit v = visits.get(i);
+            // 기록이 여러 날이면 날짜가 바뀌는 곳에 날짜 줄 (PR #63 리뷰 2)
+            if (manyDays && (previous == null || !MyTourDisplay.sameDay(previous, v.arrivedAt, zone))) {
+                visitList.addView(dateRow(MyTourDisplay.dateLabel(v.arrivedAt, zone), density, previous != null));
+            }
             View row = inflater.inflate(R.layout.item_my_tour_visit, visitList, false);
             String name = spotNames.get(v.spotId);
             ((TextView) row.findViewById(R.id.tvVisitName)).setText(name != null ? name : "장소 " + v.spotId);
             ((TextView) row.findViewById(R.id.tvVisitTime)).setText(MyTourDisplay.clock(v.arrivedAt, zone));
-            ((TextView) row.findViewById(R.id.tvVisitGap)).setText(MyTourDisplay.gap(previous, v.arrivedAt));
+            ((TextView) row.findViewById(R.id.tvVisitGap)).setText(MyTourDisplay.gap(previous, v.arrivedAt, zone));
             TextView manual = row.findViewById(R.id.tvVisitManual);
             manual.setVisibility(v.manual ? View.VISIBLE : View.GONE);
             manual.setText(MyTourDisplay.manualChip());
@@ -176,6 +183,17 @@ public class MyTourActivity extends AppCompatActivity {
                         LinearLayout.LayoutParams.MATCH_PARENT, Math.max(1, Math.round(density))));
             }
         }
+    }
+
+    /** 발자국 목록 안의 날짜 줄. 예: "11월 28일 (토)" */
+    private TextView dateRow(String text, float density, boolean gapAbove) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setTextSize(13);
+        t.setTypeface(t.getTypeface(), android.graphics.Typeface.BOLD);
+        t.setTextColor(ContextCompat.getColor(this, R.color.tour_text_secondary));
+        t.setPadding(0, Math.round((gapAbove ? 14 : 10) * density), 0, Math.round(2 * density));
+        return t;
     }
 
     /**

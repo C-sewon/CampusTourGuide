@@ -76,10 +76,29 @@ public class TourCardsTest {
 
     @Test
     public void pending_arrivalOrder_skipsSeenAndNonCards() {
-        List<Integer> visited = Arrays.asList(1, 7, 10, 6);
+        List<TourProgress.Visit> visits = Arrays.asList(visit(1, 100), visit(7, 200), visit(10, 300), visit(6, 400));
         Set<Integer> cardIds = set(4, 6, 7, 10);
-        assertEquals(Arrays.asList(7, 10, 6), TourCards.pending(visited, cardIds, Collections.emptySet()));
-        assertEquals(Collections.singletonList(6), TourCards.pending(visited, cardIds, set(7, 10)));
+        assertEquals(Arrays.asList(7, 10, 6), ids(TourCards.pending(visits, cardIds, Collections.emptySet())));
+        assertEquals(Collections.singletonList(6), ids(TourCards.pending(visits, cardIds, strings("7:200", "10:300"))));
+    }
+
+    @Test
+    public void pending_reArrivalAfterClear_isNewVisit() {
+        // 도서관 뒤편(6) 카드를 본 뒤 기록을 지우고 다시 도착하면 도착 시각이 달라 카드가 또 뜬다 (PR #65 리뷰 2)
+        List<TourProgress.Visit> again = Collections.singletonList(visit(6, 900));
+        assertEquals(Collections.singletonList(6), ids(TourCards.pending(again, set(6), strings("6:100"))));
+    }
+
+    @Test
+    public void backlog_coreCards_showProgressAsOfArrival() {
+        // 핵심 코스 3곳이 이미 모두 기록된 뒤 밀린 카드를 차례로 띄우면 1/3 → 2/3 → 완주 (PR #65 리뷰 1)
+        List<TourProgress.Visit> visits = Arrays.asList(visit(6, 100), visit(7, 200), visit(1, 250), visit(4, 300));
+        List<String> shown = new ArrayList<>();
+        for (TourProgress.Visit v : TourCards.pending(visits, set(4, 6, 7, 10), Collections.emptySet())) {
+            TourCards.Card card = TourCards.cardFor(v.spotId, COURSES, TourCards.visitedUpTo(visits, v));
+            shown.add(card.kind + " " + card.coreVisitedCount() + " " + card.collected);
+        }
+        assertEquals(Arrays.asList("CORE 1 1", "CORE 2 2", "COMPLETE 3 3"), shown);
     }
 
     @Test
@@ -107,6 +126,20 @@ public class TourCardsTest {
     }
 
     // ---------- 테스트용 데이터 ----------
+
+    private static TourProgress.Visit visit(int spotId, long arrivedAt) {
+        return new TourProgress.Visit(spotId, true, arrivedAt);
+    }
+
+    private static List<Integer> ids(List<TourProgress.Visit> visits) {
+        List<Integer> out = new ArrayList<>();
+        for (TourProgress.Visit v : visits) out.add(v.spotId);
+        return out;
+    }
+
+    private static Set<String> strings(String... keys) {
+        return new HashSet<>(Arrays.asList(keys));
+    }
 
     private static Set<Integer> set(Integer... ids) {
         return new HashSet<>(Arrays.asList(ids));

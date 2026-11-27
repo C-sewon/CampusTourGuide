@@ -22,7 +22,8 @@ public final class TourCardSheet {
 
     private TourCardSheet() {}
 
-    public static void show(Context context, TourCards.Card card, Runnable onDismiss) {
+    /** 카드를 띄우고 그 시트를 돌려준다. 사용자가 닫으면 onDismiss */
+    public static BottomSheetDialog show(Context context, TourCards.Card card, Runnable onDismiss) {
         View view = LayoutInflater.from(context).inflate(R.layout.sheet_tour_card, null, false);
         TextView kind = view.findViewById(R.id.tvCardKind);
         TextView title = view.findViewById(R.id.tvCardTitle);
@@ -77,6 +78,7 @@ public final class TourCardSheet {
             behavior.setSkipCollapsed(true);
             behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
         }
+        return dialog;
     }
 
     /** 핵심 코스 진행: 장소마다 점(간 곳은 진한 초록) + "핵심 코스 3곳 중 M곳 방문". 핵심 코스 카드가 아니면 숨긴다 */

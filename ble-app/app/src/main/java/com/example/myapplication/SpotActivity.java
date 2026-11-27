@@ -114,8 +114,8 @@ public class SpotActivity extends AppCompatActivity {
     private int index = -1;
     /** 카드를 정할 때 쓰는 전체 코스 목록 (핵심 코스, 카드 장소). TourData 에서 받는다 */
     private List<HomeApi.Course> allCourses;
-    /** 지금 카드를 띄우고 있으면 true. 여러 장이면 닫힐 때 다음 카드를 띄운다 */
-    private boolean cardShowing;
+    /** 지금 띄운 카드 시트. 여러 장이면 닫힐 때 다음 카드를 띄운다 */
+    private android.app.Dialog cardDialog;
 
     /** BLE 자동 도착 (#29, 황지유). 어느 장소든 새로 도착이 기록되면 화면을 다시 그린다 */
     private final TourScanner.Listener scanListener = new TourScanner.Listener() {
@@ -223,6 +223,13 @@ public class SpotActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        // 화면을 돌리는 등으로 화면이 다시 만들어질 때는 카드를 "봤다"고 기록하지 않고 닫는다. 다시 열린 화면이 또 띄운다 (PR #65 리뷰)
+        if (cardDialog != null) {
+            android.app.Dialog d = cardDialog;
+            cardDialog = null;
+            d.setOnDismissListener(null);
+            d.dismiss();
+        }
         super.onDestroy();
         if (routeCall != null) routeCall.cancel();
         mapView.removeCallbacks(routeRetry);
@@ -651,23 +658,16 @@ public class SpotActivity extends AppCompatActivity {
     }
 
     /**
-     * 장소 카드 (#37 RF-FX-03). 도착이 기록됐는데 아직 띄우지 않은 카드 장소가 있으면 한 장씩 띄운다.
-     * 지금 안내 중인 장소가 아니어도 띄운다(자동 도착으로 지나간 장소). 장소마다 한 번만.
+     * 장소 카드 (#37 RF-FX-03). 도착이 기록됐는데 아직 띄우지 않은 카드가 있으면 도착한 순서대로 한 장씩 띄운다.
+     * 지금 안내 중인 장소가 아니어도 띄운다(자동 도착으로 지나간 장소). 방문마다 한 번만, 사용자가 닫으면 "봤다"고 기록한다.
      */
     private void showPendingCards() {
-        if (cardShowing || allCourses == null || isFinishing() || isDestroyed()) return;
-        List<Integer> pending = TourCards.pendingNow(allCourses);
-        if (pending.isEmpty()) return;
-        int spotId = pending.get(0);
-        TourCards.markSeen(spotId);
-        TourCards.Card card = TourCards.cardFor(spotId, allCourses, TourCards.visitedIds());
-        if (card == null) {
-            showPendingCards();
-            return;
-        }
-        cardShowing = true;
-        TourCardSheet.show(this, card, () -> {
-            cardShowing = false;
+        if (cardDialog != null || allCourses == null || isFinishing() || isDestroyed()) return;
+        TourCards.Card card = TourCards.nextCard(allCourses);
+        if (card == null) return;
+        cardDialog = TourCardSheet.show(this, card, () -> {
+            cardDialog = null;
+            TourCards.markSeen(card);
             showPendingCards();
         });
     }

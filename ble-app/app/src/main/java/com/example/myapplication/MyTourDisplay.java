@@ -2,6 +2,7 @@ package com.example.myapplication;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -49,17 +50,54 @@ public final class MyTourDisplay {
         return m == 0 ? h + "시간" : h + "시간 " + m + "분";
     }
 
-    /** 첫 도착부터 마지막 도착까지 걸린 시간 (총 경과 시간). 기록이 없으면 0 */
-    public static long elapsed(List<TourProgress.Visit> visits) {
+    /**
+     * 걸린 시간 (총 경과 시간). 날마다 첫 도착부터 마지막 도착까지를 더한다.
+     * 기록이 여러 날에 걸쳐 있어도 밤사이 시간은 세지 않는다. (PR #63 리뷰 2) 기록이 없으면 0
+     */
+    public static long elapsed(List<TourProgress.Visit> visits, TimeZone zone) {
         if (visits == null || visits.size() < 2) return 0;
         List<TourProgress.Visit> s = sorted(visits);
-        return s.get(s.size() - 1).arrivedAt - s.get(0).arrivedAt;
+        long total = 0, dayStart = s.get(0).arrivedAt, previous = dayStart;
+        for (TourProgress.Visit v : s) {
+            if (!sameDay(previous, v.arrivedAt, zone)) {
+                total += previous - dayStart;
+                dayStart = v.arrivedAt;
+            }
+            previous = v.arrivedAt;
+        }
+        return total + (previous - dayStart);
     }
 
-    /** 발자국 한 줄의 앞 장소와의 시간. 첫 장소면 "첫 방문" */
-    public static String gap(Long previousArrivedAt, long arrivedAt) {
-        if (previousArrivedAt == null) return "첫 방문";
+    /** 발자국 한 줄의 앞 장소와의 시간. 첫 장소이거나 앞 장소가 다른 날이면 "첫 방문" */
+    public static String gap(Long previousArrivedAt, long arrivedAt, TimeZone zone) {
+        if (previousArrivedAt == null || !sameDay(previousArrivedAt, arrivedAt, zone)) return "첫 방문";
         return "앞 장소에서 " + duration(arrivedAt - previousArrivedAt);
+    }
+
+    /** 같은 날(폰 시간대 기준)인지 */
+    public static boolean sameDay(long a, long b, TimeZone zone) {
+        Calendar ca = Calendar.getInstance(zone), cb = Calendar.getInstance(zone);
+        ca.setTimeInMillis(a);
+        cb.setTimeInMillis(b);
+        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR)
+                && ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR);
+    }
+
+    /** 기록이 여러 날이면 날짜마다 붙이는 줄. 예: "11월 28일 (토)" */
+    public static String dateLabel(long millis, TimeZone zone) {
+        Calendar c = Calendar.getInstance(zone);
+        c.setTimeInMillis(millis);
+        String[] days = {"일", "월", "화", "수", "목", "금", "토"};
+        return (c.get(Calendar.MONTH) + 1) + "월 " + c.get(Calendar.DAY_OF_MONTH) + "일 ("
+                + days[c.get(Calendar.DAY_OF_WEEK) - 1] + ")";
+    }
+
+    /** 기록이 두 날 이상에 걸쳐 있는지 (그때만 날짜 줄을 보여 준다) */
+    public static boolean manyDays(List<TourProgress.Visit> visits, TimeZone zone) {
+        if (visits == null || visits.isEmpty()) return false;
+        long first = visits.get(0).arrivedAt;
+        for (TourProgress.Visit v : visits) if (!sameDay(first, v.arrivedAt, zone)) return true;
+        return false;
     }
 
     /** 도착 버튼으로 체크한 곳에 붙는 표시 */

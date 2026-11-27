@@ -17,8 +17,9 @@ import java.util.Set;
  * - 그 밖의 카드 장소(개신문화관, 박물관, 야외공연장): 장소 소개 카드
  * 도착은 BLE 자동 도착이든 "도착" 버튼이든 같다. 어느 코스로 걷든 카드 장소에 도착하면 카드가 뜬다.
  *
- * 카드는 장소마다 한 번만 띄운다. 띄운 카드는 폰에 저장하고(tour_cards.xml, 백업 제외),
- * 방문 기록이 지워진 장소는 다시 도착하면 카드를 또 띄운다.
+ * 카드는 방문(장소 + 도착 시각)마다 한 번만 띄운다. 띄운 방문은 폰에 저장하고(tour_cards.xml, 백업 제외),
+ * 방문 기록이 지워졌다가 다시 도착하면 도착 시각이 달라 새 방문이므로 카드를 또 띄운다. (PR #65 리뷰 2)
+ * 밀린 카드를 여러 장 띄울 때는 각 카드를 "그 장소에 도착한 때까지의 방문"으로 만든다. (PR #65 리뷰 1)
  * 계산은 Android 없이 테스트할 수 있게 static 함수로 둔다. (TourCardsTest)
  */
 public final class TourCards {
@@ -41,6 +42,8 @@ public final class TourCards {
         public final List<Boolean> coreVisited;
         /** 모은 카드 수 / 전체 카드 수 (도감) */
         public final int collected, total;
+        /** 이 카드를 띄운 방문 ("장소번호:도착시각"). 봤다고 기록할 때 쓴다 */
+        String visitKey;
 
         Card(Kind kind, HomeApi.Spot spot, List<String> coreNames, List<Boolean> coreVisited, int collected, int total) {
             this.kind = kind;
@@ -111,13 +114,29 @@ public final class TourCards {
         return new Card(all ? Kind.COMPLETE : Kind.CORE, spot, names, done, collected, cards.size());
     }
 
-    /** 아직 띄우지 않은 카드 장소 (도착한 순서대로) */
-    static List<Integer> pending(List<Integer> visitedInOrder, Collection<Integer> cardIds, Collection<Integer> seen) {
-        List<Integer> out = new ArrayList<>();
-        for (Integer id : visitedInOrder) {
-            if (id != null && cardIds.contains(id) && !seen.contains(id) && !out.contains(id)) out.add(id);
+    /** 방문 하나를 가리키는 글자: "장소번호:도착시각" */
+    static String key(TourProgress.Visit v) {
+        return v.spotId + ":" + v.arrivedAt;
+    }
+
+    /** 아직 띄우지 않은 카드 장소의 방문 (도착한 순서대로) */
+    static List<TourProgress.Visit> pending(List<TourProgress.Visit> visitsInOrder, Collection<Integer> cardIds,
+                                            Collection<String> seen) {
+        List<TourProgress.Visit> out = new ArrayList<>();
+        for (TourProgress.Visit v : visitsInOrder) {
+            if (cardIds.contains(v.spotId) && !seen.contains(key(v))) out.add(v);
         }
         return out;
+    }
+
+    /** 이 방문까지(포함) 도착한 장소. 밀린 카드도 도착한 그때의 진행(1/3, 2/3, 완주)으로 보여 주려고 쓴다 */
+    static Set<Integer> visitedUpTo(List<TourProgress.Visit> visitsInOrder, TourProgress.Visit upTo) {
+        Set<Integer> ids = new HashSet<>();
+        for (TourProgress.Visit v : visitsInOrder) {
+            ids.add(v.spotId);
+            if (v == upTo || key(v).equals(key(upTo))) break;
+        }
+        return ids;
     }
 
     /** 소개 글의 첫 문장 (카드에는 한 줄만). 글이 없으면 빈 글자 */
@@ -159,14 +178,18 @@ public final class TourCards {
 
     private static final String PREFS = "tour_cards";
     private static final String PREF_SEEN = "seen";
-    private static final Set<Integer> SEEN = new LinkedHashSet<>();
+    /** 띄운 방문 ("장소번호:도착시각") */
+    private static final Set<String> SEEN = new LinkedHashSet<>();
     private static SharedPreferences prefs;
 
     /** 화면을 열 때 부른다. 이미 띄운 카드를 폰에서 읽어 온다 */
     public static synchronized void init(Context context) {
         if (prefs != null) return;
         prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        SEEN.addAll(MyCourse.decode(prefs.getString(PREF_SEEN, null)));
+        String saved = prefs.getString(PREF_SEEN, null);
+        if (saved != null && !saved.isEmpty()) {
+            for (String k : saved.split(",")) if (k.contains(":")) SEEN.add(k.trim());
+        }
     }
 
     /** 방문한 장소 번호 (TourProgress) */
@@ -176,25 +199,37 @@ public final class TourCards {
         return ids;
     }
 
-    /**
-     * 지금 띄워야 할 카드 장소 (도착한 순서대로).
-     * 방문 기록이 지워진 장소는 "띄움" 표시도 지워서, 다시 도착하면 카드가 또 뜨게 한다.
-     */
-    public static synchronized List<Integer> pendingNow(List<HomeApi.Course> courses) {
-        List<Integer> order = new ArrayList<>();
-        for (TourProgress.Visit v : TourProgress.visits()) order.add(v.spotId);
-        if (SEEN.retainAll(order)) save();
+    /** 다음에 띄울 카드. 없으면 null. 띄운 뒤 닫히면 markSeen(card) 를 부른다 */
+    public static synchronized Card nextCard(List<HomeApi.Course> courses) {
+        List<TourProgress.Visit> visits = TourProgress.visits();
+        // 지금 남아 있는 방문의 표시만 남긴다 (지워진 방문의 표시는 필요 없음)
+        Set<String> alive = new HashSet<>();
+        for (TourProgress.Visit v : visits) alive.add(key(v));
+        if (SEEN.retainAll(alive)) save();
+
         Set<Integer> cardIds = new HashSet<>();
         for (HomeApi.Spot s : cardSpots(courses)) cardIds.add(s.id);
-        return pending(order, cardIds, SEEN);
+        List<TourProgress.Visit> pending = pending(visits, cardIds, SEEN);
+        if (pending.isEmpty()) return null;
+        TourProgress.Visit v = pending.get(0);
+        Card card = cardFor(v.spotId, courses, visitedUpTo(visits, v));
+        if (card != null) card.visitKey = key(v);
+        return card;
     }
 
-    public static synchronized void markSeen(int spotId) {
-        if (SEEN.add(spotId)) save();
+    /** 이 카드를 봤다고 기록한다 (사용자가 닫았을 때) */
+    public static synchronized void markSeen(Card card) {
+        if (card != null && card.visitKey != null && SEEN.add(card.visitKey)) save();
     }
 
     private static void save() {
-        if (prefs != null) prefs.edit().putString(PREF_SEEN, MyCourse.encode(new ArrayList<>(SEEN))).apply();
+        if (prefs == null) return;
+        StringBuilder sb = new StringBuilder();
+        for (String k : SEEN) {
+            if (sb.length() > 0) sb.append(',');
+            sb.append(k);
+        }
+        prefs.edit().putString(PREF_SEEN, sb.toString()).apply();
     }
 
     /** 테스트용: 처음 상태로 */
