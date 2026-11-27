@@ -38,8 +38,15 @@ public final class TourProgress {
     /** 도착한 순서대로 */
     private static final Map<Integer, Visit> VISITS = new LinkedHashMap<>();
     private static SharedPreferences prefs;
+    /** 기록이 지워졌을 때 알릴 곳 (TourScanner: 지금 센서 앞에 있으면 그 장소를 다시 기록) */
+    private static Runnable onForget;
 
     private TourProgress() {}
+
+    /** 기록이 지워질 때(clear, forget) 부를 일을 정한다. TourScanner가 쓴다 */
+    public static synchronized void setOnForget(Runnable r) {
+        onForget = r;
+    }
 
     /** 화면을 열 때 부른다. 폰에 저장해 둔 기록을 한 번 읽어 오고, 이후 기록은 저장한다 */
     public static synchronized void init(Context context) {
@@ -87,6 +94,7 @@ public final class TourProgress {
     public static synchronized void clear() {
         VISITS.clear();
         save();
+        if (onForget != null) onForget.run();
     }
 
     /** 이 장소들의 기록만 지운다 (내 코스를 새로 걸을 때). 다른 장소 기록은 그대로 */
@@ -94,7 +102,9 @@ public final class TourProgress {
         if (spotIds == null) return;
         boolean changed = false;
         for (Integer id : spotIds) if (id != null && VISITS.remove(id) != null) changed = true;
-        if (changed) save();
+        if (!changed) return;
+        save();
+        if (onForget != null) onForget.run();
     }
 
     /** 이 장소들 중 이미 도착 기록이 있는 장소 (주어진 순서대로) */
@@ -156,5 +166,6 @@ public final class TourProgress {
     static synchronized void resetForTest() {
         VISITS.clear();
         prefs = null;
+        onForget = null;
     }
 }
