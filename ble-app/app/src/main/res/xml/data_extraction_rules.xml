@@ -4,15 +4,18 @@
    구글 계정 백업과 새 폰으로 옮기기에서 모두 뺀다. (#37, PR #57 리뷰)
    - tour_progress.xml: 장소별 도착 시각 (TourProgress)
    - my_course.xml: 내 코스로 고른 장소 순서 (MyCourse)
+   - upload_queue_v2.json: 아직 못 보낸 센서 업로드 (LabUploader). 폰 ID와 어느 센서 근처에 언제 있었는지가 남아서 뺀다 (PR #63 리뷰)
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="tour_progress.xml" />
         <exclude domain="sharedpref" path="my_course.xml" />
+        <exclude domain="file" path="upload_queue_v2.json" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="tour_progress.xml" />
         <exclude domain="sharedpref" path="my_course.xml" />
+        <exclude domain="file" path="upload_queue_v2.json" />
     </device-transfer>
 </data-extraction-rules>
