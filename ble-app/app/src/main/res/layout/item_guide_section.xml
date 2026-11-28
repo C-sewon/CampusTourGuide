@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 가이드 화면의 한 묶음: 아이콘, 제목, 설명. 처음엔 제목만 보이고 누르면 설명이 펼쳐진다 (GuideActivity 가 채운다) -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="12dp"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardBackgroundColor="@color/tour_surface"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="1dp"
+    app:strokeWidth="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_tour_box"
+                android:backgroundTint="@color/tour_mint">
+
+                <ImageView
+                    android:id="@+id/ivGuideIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    app:tint="@color/tour_primary"
+                    tools:src="@drawable/ic_tour_bt" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvGuideTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:textColor="@color/tour_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                tools:text="자동 도착" />
+
+            <!-- 접힘: ⌄, 펼침: ⌃ (180도 돌림) -->
+            <ImageView
+                android:id="@+id/ivGuideChevron"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_tour_chevron"
+                app:tint="@color/tour_text_secondary" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvGuideBody"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:lineSpacingExtra="4dp"
+            android:textColor="@color/tour_text_secondary"
+            android:textSize="14sp"
+            android:visibility="gone"
+            tools:text="블루투스를 켜고 앱 화면을 켜 두면 ..." />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 가이드 화면 문구 (#64). %1$s 등은 코스 데이터에서 읽은 장소 이름과 수 -->
+<resources>
+    <string name="guide_title">가이드</string>
+    <string name="guide_intro">캠퍼스 ON을 처음 쓰신다면 이것만 알면 돼요.</string>
+
+    <string name="guide_steps_title">이렇게 걸어요</string>
+    <string name="guide_steps_body">1. 탐색에서 추천 코스를 보거나, 코스 둘러보기에서 코스를 골라요. 원하는 장소로 내 코스를 만들 수도 있어요.\n2. 장소 안내 화면을 켜 둔 채 다음 장소로 걸어가요. 지도에 걷는 길이 보여요.\n3. 도착하면 방문이 기록되고, 카드 장소면 카드가 열려요.\n4. 내 투어에서 도착 시각과 걸린 시간을 확인해요.</string>
+
+    <string name="guide_auto_title">자동 도착</string>
+    <string name="guide_auto_body">블루투스를 켜고 앱 화면을 켜 두면, 센서가 있는 장소에 가까이 갔을 때 도착을 알아서 기록해요.\n센서가 있는 곳: %1$s\n앱을 닫거나 화면이 꺼지면 자동 도착은 멈춰요.</string>
+
+    <string name="guide_manual_title">\'도착\' 버튼</string>
+    <string name="guide_manual_body">센서가 없는 %1$d곳은 도착하면 장소 안내 화면의 \'도착\' 버튼을 눌러 주세요. 센서가 있는 곳에서 자동으로 기록되지 않을 때도 이 버튼을 쓰면 돼요.</string>
+
+    <string name="guide_temp_title">지금 온도 보기</string>
+    <string name="guide_temp_body">장소 안내 화면에는 그 자리의 지금 온도가 측정 시각과 함께 나와요.\n· 이 장소 센서: 그 장소에 있는 센서 값이에요.\n· 약 OOm 떨어진 센서 기준: 그 장소 센서 값이 없어서 200m 안의 가까운 센서 값을 빌려 왔어요.\n· 최신 값이 아닐 수 있어요: 측정한 지 30분이 넘었어요.\n· 값을 받을 수 없어요: 근처에 쓸 수 있는 센서 값이 없어요.</string>
+
+    <string name="guide_cards_title">카드 모으기</string>
+    <string name="guide_cards_body">카드 장소 %1$d곳에 도착하면 카드가 한 장씩 열려요.\n카드 장소: %2$s\n핵심 코스 %3$d곳(%4$s)을 모두 가면 완주 카드를 받아요. 모은 카드는 홈과 내 투어에서 볼 수 있어요.</string>
+
+    <string name="guide_privacy_title">내 기록과 개인정보</string>
+    <string name="guide_privacy_body">· 방문 기록과 모은 카드는 이 폰에만 저장되고 우리 서버로 보내지 않아요. 내 투어의 \'기록 지우기\'로 지울 수 있어요.\n· 센서 값을 학교 연구실 서버로 올릴 때 폰을 구분하는 ID가 함께 가요. 내 위치는 보내지 않아요.\n· 장소 안내 화면에서 걷는 길을 그리려고 내 위치(약 10m 단위로 반올림)를 지도 경로 서비스(OpenStreetMap)에 보내요.</string>
+</resources>

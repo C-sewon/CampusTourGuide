@@ -49,6 +49,10 @@
         <activity
             android:name=".MyTourActivity"
             android:exported="false" />
+        <!-- 가이드 (#64, 하단 '가이드' 탭) -->
+        <activity
+            android:name=".GuideActivity"
+            android:exported="false" />
         <!-- 장소 안내 화면 (코스 화면 "이 코스 시작하기", 홈 "투어 시작하기"에서 연다) -->
         <activity
             android:name=".SpotActivity"
