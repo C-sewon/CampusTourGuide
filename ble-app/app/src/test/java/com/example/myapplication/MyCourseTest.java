@@ -43,6 +43,8 @@ public class MyCourseTest {
         c.toggle(7);
         assertFalse(c.canStart());
         c.toggle(1);
+        assertFalse(c.canStart());  // 3곳 이상 (RF-FX-01)
+        c.toggle(3);
         assertTrue(c.canStart());
     }
 

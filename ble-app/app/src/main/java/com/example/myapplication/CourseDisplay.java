@@ -43,6 +43,8 @@ public final class CourseDisplay {
     /** 코스 목록 아래 "내 코스 만들기" 카드의 설명. 고른 적이 있으면 그 수를 알려 준다 */
     public static String myCourseEntryMeta(int savedCount) {
         if (savedCount <= 0) return "원하는 장소를 골라 순서대로 걸어요";
+        // 3곳(MyCourse.MIN_SPOTS)이 안 되면 바로 시작할 수 없어서 더 고르라고 한다
+        if (savedCount < MyCourse.MIN_SPOTS) return "지난번에 고른 " + savedCount + "곳 · " + MyCourse.MIN_SPOTS + "곳 이상 골라 주세요";
         return "지난번에 고른 " + savedCount + "곳 · 눌러서 고치거나 시작해요";
     }
 

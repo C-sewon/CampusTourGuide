@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 장소 카드 문구 (#37 RF-FX-03) -->
+<resources>
+    <string name="card_kind_core">핵심 코스 카드</string>
+    <string name="card_kind_complete">핵심 코스 완주</string>
+    <string name="card_kind_intro">장소 카드</string>
+    <string name="card_sub_new">새 카드를 열었어요</string>
+    <string name="card_complete_title">핵심 코스 완주!</string>
+    <string name="card_complete_sub">핵심 코스 카드를 모두 모았어요</string>
+    <string name="card_ok">확인</string>
+    <string name="card_ok_complete">좋아요</string>
+</resources>

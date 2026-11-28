@@ -96,7 +96,7 @@ public class MyCourseActivity extends AppCompatActivity {
     }
 
     /**
-     * 시작할 수 있는지: 2곳 이상 골랐고, 장소 목록을 받은 뒤.
+     * 시작할 수 있는지: 3곳 이상(RF-FX-01) 골랐고, 장소 목록을 받은 뒤.
      * 목록을 받기 전에는 장소 이름을 몰라서 팝업 문구가 비고 코스도 만들 수 없다. (PR #57 리뷰)
      */
     private boolean canStart() {

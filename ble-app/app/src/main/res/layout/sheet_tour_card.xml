@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 장소 카드 (#37 RF-FX-03). 도착하면 화면 아래에서 올라온다 (TourCardSheet) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_tour_sheet"
+    android:orientation="vertical"
+    android:paddingStart="20dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="20dp">
+
+    <!-- 손잡이 -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/bg_tour_chip"
+        android:backgroundTint="@color/tour_disabled" />
+
+    <!-- 카드 종류 + 도감 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tvCardKind"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_tour_chip"
+            android:backgroundTint="@color/tour_mint"
+            android:paddingStart="10dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="4dp"
+            android:textColor="@color/tour_primary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="핵심 코스 카드" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/tvCardCollection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/tour_text_secondary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="도감 3/6장" />
+    </LinearLayout>
+
+    <!-- 카드 앞면 -->
+    <LinearLayout
+        android:id="@+id/cardFace"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_tour_round16"
+        android:backgroundTint="@color/tour_primary"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="26dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="24dp">
+
+        <ImageView
+            android:id="@+id/ivCardIcon"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/bg_tour_oval"
+            android:backgroundTint="@color/tour_mint"
+            android:contentDescription="@null"
+            android:padding="15dp"
+            android:src="@drawable/ic_tour_pin"
+            app:tint="@color/tour_primary" />
+
+        <TextView
+            android:id="@+id/tvCardTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:textColor="@color/tour_on_primary"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            tools:text="도서관 뒤편" />
+
+        <TextView
+            android:id="@+id/tvCardSub"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:textColor="@color/tour_mint"
+            android:textSize="13sp"
+            tools:text="새 카드를 열었어요" />
+    </LinearLayout>
+
+    <!-- 한 줄 소개 -->
+    <TextView
+        android:id="@+id/tvCardIntro"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:lineSpacingExtra="3dp"
+        android:textColor="@color/tour_text"
+        android:textSize="14sp"
+        tools:text="중앙도서관(N12) 뒤편이에요." />
+
+    <!-- 핵심 코스 진행: 장소마다 점 하나 + "핵심 코스 3곳 중 M곳 방문" -->
+    <LinearLayout
+        android:id="@+id/rowCore"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:background="@drawable/bg_tour_box"
+        android:backgroundTint="@color/tour_grey_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="10dp">
+
+        <LinearLayout
+            android:id="@+id/coreDots"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+
+        <TextView
+            android:id="@+id/tvCoreProgress"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:textColor="@color/tour_text"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="핵심 코스 3곳 중 2곳 방문" />
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCardOk"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_marginTop="18dp"
+        android:backgroundTint="@color/tour_primary"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:text="@string/card_ok"
+        android:textColor="@color/tour_on_primary"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:cornerRadius="16dp" />
+</LinearLayout>
