@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
@@ -57,7 +56,10 @@ public final class TourTabs {
                 from.overridePendingTransition(0, 0);
                 break;
             default:
-                Toast.makeText(from, "가이드는 준비 중이에요", Toast.LENGTH_SHORT).show();
+                // 가이드 (#64): 앱 사용법과 개인정보 안내
+                Intent guide = new Intent(from, GuideActivity.class).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                from.startActivity(guide);
+                from.overridePendingTransition(0, 0);
         }
     }
 }
